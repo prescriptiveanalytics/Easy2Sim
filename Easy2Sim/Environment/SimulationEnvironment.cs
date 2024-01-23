@@ -39,7 +39,7 @@ namespace Easy2Sim.Environment
             Model.SimulationObjects.Add(simulationBase.Index, simulationBase);
         }
 
-        public void AddConnection(SimulationBase output, string outputName, SimulationBase input, string inputName)
+        public void AddConnection(SimulationBase output, string outputName, SimulationBase input, string inputName, int sourceIndex = -1, int targetIndex = -1)
         {
             FieldInfo? outputField = output.GetType().GetFields().FirstOrDefault(x => x.Name == outputName);
             FieldInfo? inputField = input.GetType().GetFields().FirstOrDefault(x => x.Name == inputName);
@@ -62,7 +62,9 @@ namespace Easy2Sim.Environment
 
             Connection con = new Connection
             {
-                EnvironmentGuid = Guid
+                EnvironmentGuid = Guid,
+                SourceIndex = sourceIndex,
+                TargetIndex = targetIndex
             };
 
             if (outputField != null)
@@ -89,6 +91,7 @@ namespace Easy2Sim.Environment
             con.TargetName = inputName;
             Model.Connections.Add(con);
         }
+       
 
 
 

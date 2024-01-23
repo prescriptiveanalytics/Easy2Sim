@@ -1,4 +1,5 @@
-﻿using Easy2Sim.Environment;
+﻿using System.Collections;
+using Easy2Sim.Environment;
 using Newtonsoft.Json;
 using System.Reflection;
 
@@ -90,6 +91,12 @@ namespace Easy2Sim.Connect
             }
         }
 
+        /// <summary>
+        /// If the source is an IEnumerable we can also link individual values of this IEnumerable 
+        /// </summary>
+        internal int SourceIndex { get; set; }
+
+
         #endregion
 
         #region target information
@@ -140,6 +147,10 @@ namespace Easy2Sim.Connect
         [JsonIgnore]
         public SimulationBase? Target => SimulationEnvironment?.GetComponentByGuid(TargetGuid);
 
+        /// <summary>
+        /// If the target is an IEnumerable we can also link individual values of this IEnumerable 
+        /// </summary>
+        internal int TargetIndex { get; set; }
         #endregion
 
         public Connection()
@@ -149,6 +160,9 @@ namespace Easy2Sim.Connect
 
             TargetName = string.Empty;
             TargetType = string.Empty;
+
+            SourceIndex = -1;
+            TargetIndex = -1;
         }
 
         [JsonIgnore]
@@ -160,10 +174,34 @@ namespace Easy2Sim.Connect
                     return null;
                 //Check if a field exists with a value
                 if (SourceField != null)
-                    return SourceField.GetValue(Source);
+                {
+                    object returnValue = SourceField.GetValue(Source);
+                    if (SourceIndex >= 0)
+                    {
+                        if (returnValue is IList list)
+                            return list[SourceIndex];
+                        if (returnValue is Array array)
+                            return array.GetValue(SourceIndex);
+                    }
+
+                    return returnValue;
+                }
+
                 //Check if a property exists that holds a value
                 if (SourcePropertyInfo != null)
-                    return SourcePropertyInfo.GetValue(Source);
+                {
+                    object returnValue = SourcePropertyInfo.GetValue(Source);
+
+                    if (SourceIndex >= 0)
+                    {
+                        if (returnValue is IList list)
+                            return list[SourceIndex];
+                        if (returnValue is Array array)
+                            return array.GetValue(SourceIndex);
+                    }
+
+                    return returnValue;
+                }
                 return null;
             }
         }
@@ -183,37 +221,69 @@ namespace Easy2Sim.Connect
 
         public void SetValue()
         {
-            if (SourceType == TargetType)
+            if ((SourceType != TargetType) && (TargetType != nameof(String))) return;
+            object? value = SourceValue;
+            if (TargetField != null)
             {
-                object? value = SourceValue;
-                if (TargetField != null)
+                if (TargetIndex >= 0)
                 {
-                    TargetField.SetValue(Target, value);
-                    return;
-                }
-
-                if (TargetPropertyInfo != null)
-                    TargetPropertyInfo.SetValue(Target, value);
-
-            }
-            else
-            {
-
-                if (TargetType == nameof(String))
-                {
-                    object? value = SourceValue;
-                    if (TargetField != null)
+                    if (TargetField.GetValue(Target) is IList targetList)
                     {
-                        TargetField.SetValue(Target, value?.ToString());
+                        if (TargetType == nameof(String))
+                            targetList[TargetIndex] = value.ToString();
+                        else
+                            targetList[TargetIndex] = value;
                         return;
                     }
 
-                    if (TargetPropertyInfo != null)
-                        TargetPropertyInfo.SetValue(Target, value?.ToString());
+                    if (TargetField.GetValue(Target) is Array targetArray)
+                    {
+                        if (TargetType == nameof(String))
+                            targetArray.SetValue(value.ToString(), TargetIndex);
+                        else
+                            targetArray.SetValue(value, TargetIndex);
+                        return;
+                    }
+                }
+                if (TargetType == nameof(String))
+                    TargetField.SetValue(Target, value.ToString());
+                else
+                    TargetField.SetValue(Target, value);
+                return;
+            }
+            else
+            {
+                if (TargetPropertyInfo == null) return;
+                if (TargetIndex >= 0)
+                {
+                    if (TargetPropertyInfo.GetValue(Target) is IList targetList)
+                    {
+                        if (TargetType == nameof(String))
+                            targetList[TargetIndex] = value.ToString();
+                        else
+                            targetList[TargetIndex] = value;
+
+                        return;
+                    }
+
+                    if (TargetPropertyInfo.GetValue(Target) is Array targetArray)
+                    {
+                        if (TargetType == nameof(String))
+                            targetArray.SetValue(value.ToString(), TargetIndex);
+                        else
+                            targetArray.SetValue(value, TargetIndex);
+                        return;
+                    }
                 }
 
-            }
 
+                if (TargetType == nameof(String))
+                {
+                    TargetPropertyInfo.SetValue(Target, value.ToString());
+                }
+                else
+                    TargetPropertyInfo.SetValue(Target, value);
+            }
         }
 
 

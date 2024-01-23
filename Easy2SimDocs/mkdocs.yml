@@ -1,0 +1,36 @@
+site_name: Easy2Sim Documentation
+site_url: https://example.com/
+nav:
+  - Home: README.md
+  - UseCase: UseCase.md
+theme:
+  name: material 
+  custom_css:
+    - custom.css
+  features:
+    - content.code.annotate
+    - content.code.select
+    - content.code.copy  
+  icon:
+    annotation: material/plus-circle-outline
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+plugins:
+  - mkdocs-video:
+      is_video: True
+      video_muted: True
+      video_controls: True
+      css_style:
+        width: "100%"

@@ -278,6 +278,11 @@ namespace Easy2Sim.Solvers.Discrete
                     _discreteSolverModel.ComponentsAtSimulationTime[simulationTime].Add(simulationBase.Name);
                     _discreteSolverModel.EventList.Add(new DiscreteEvent(simulationTime, simulationBase.Name));
                 }
+                //Allow one component multiple times at a time step
+                else
+                {
+                    _discreteSolverModel.EventList.Add(new DiscreteEvent(simulationTime, simulationBase.Name));
+                }
             }
         }
 
