@@ -3,6 +3,7 @@ site_url: https://example.com/
 nav:
   - Home: README.md
   - UseCase: UseCase.md
+  - Basics: Basics.md
 theme:
   name: material 
   custom_css:

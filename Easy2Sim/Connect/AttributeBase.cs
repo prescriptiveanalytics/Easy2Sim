@@ -9,6 +9,7 @@ namespace Easy2Sim.Connect
     /// </summary>
     public abstract class AttributeBase : Attribute, IFrameworkBase
     {
+        
         /// <summary>
         /// Unique Guid that can be used to uniquely identify class instances
         /// </summary>
@@ -47,5 +48,8 @@ namespace Easy2Sim.Connect
         {
             return JsonConvert.SerializeObject(this);
         }
+
+
+
     }
 }

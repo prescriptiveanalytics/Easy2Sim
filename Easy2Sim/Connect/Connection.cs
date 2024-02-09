@@ -39,6 +39,7 @@ namespace Easy2Sim.Connect
         [JsonProperty]
         internal object? CurrentValue { get; set; }
 
+
         #region Source information
         /// <summary>
         /// String representation of the source type.
@@ -215,7 +216,8 @@ namespace Easy2Sim.Connect
                     return false;
                 if (SourceValue != null && CurrentValue == null)
                     return true;
-                return SourceValue != null && SourceValue.Equals(CurrentValue);
+                bool equals = SourceValue.Equals(CurrentValue);
+                return SourceValue != null && !equals;
             }
         }
 

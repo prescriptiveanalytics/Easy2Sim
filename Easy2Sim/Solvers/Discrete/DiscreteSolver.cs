@@ -1,4 +1,5 @@
-﻿using Easy2Sim.Connect;
+﻿using System.Runtime.CompilerServices;
+using Easy2Sim.Connect;
 using Easy2Sim.Environment;
 using Newtonsoft.Json;
 
@@ -15,6 +16,7 @@ namespace Easy2Sim.Solvers.Discrete
         /// </summary>
         [JsonProperty] private DiscreteSolverModel _discreteSolverModel;
 
+        [JsonIgnore] public DiscreteSolverModel DiscreteSolverModel => _discreteSolverModel;
         /// <summary>
         /// Represents all data that is necessary to run one event based simulation.
         /// </summary>
@@ -59,6 +61,8 @@ namespace Easy2Sim.Solvers.Discrete
 
             try
             {
+                AddInitialEvents();
+
                 // Stopping condition:
                 // A component sets the simulation to finished or
                 // no events left
@@ -96,16 +100,22 @@ namespace Easy2Sim.Solvers.Discrete
 
             try
             {
-
+                AddInitialEvents();
                 // Stopping condition:
                 // A component sets the simulation to finished or
                 // no events left or
                 // the simulation time is larger than the given max time
-                while (!BaseModel.IsFinished && _discreteSolverModel.EventList.Any() && BaseModel.SimulationTime <= maxTime)
+                while (!BaseModel.IsFinished && _discreteSolverModel.EventList.Any())
                 {
                     DiscreteEvent? discreteEvent = GetNextEvent();
                     if (discreteEvent == null)
                         break;
+
+                    if (discreteEvent.TimeStamp > maxTime)
+                    {
+                        BaseModel.IsFinished = true;
+                        break;
+                    }
 
                     if (discreteEvent.TimeStamp > BaseModel.SimulationTime)
                         BaseModel.SimulationTime = discreteEvent.TimeStamp;
@@ -126,6 +136,27 @@ namespace Easy2Sim.Solvers.Discrete
             catch (Exception ex)
             {
                 SimulationEnvironment.LogError(ex.ToString());
+            }
+        }
+
+        /// <summary>
+        /// Each components discrete event should be added at least once at time step 0
+        /// </summary>
+        private void AddInitialEvents()
+        {
+            //Add events for each component
+            if (BaseModel.SimulationTime == 0)
+            {
+                List<SimulationBase> components = SimulationEnvironment.Model.SimulationObjects.Values.ToList();
+
+                List<DiscreteEvent> initialEvents = _discreteSolverModel.EventList.Where(x => x.TimeStamp == 0).ToList();
+
+                List<SimulationBase> componentsWithoutEvents = components.Where(x => !initialEvents.Select(y => y.ComponentName).Contains(x.Name)).ToList();
+
+                foreach (SimulationBase simulationBase in componentsWithoutEvents)
+                {
+                    AddEvent(simulationBase);
+                }
             }
         }
 
@@ -278,11 +309,6 @@ namespace Easy2Sim.Solvers.Discrete
                     _discreteSolverModel.ComponentsAtSimulationTime[simulationTime].Add(simulationBase.Name);
                     _discreteSolverModel.EventList.Add(new DiscreteEvent(simulationTime, simulationBase.Name));
                 }
-                //Allow one component multiple times at a time step
-                else
-                {
-                    _discreteSolverModel.EventList.Add(new DiscreteEvent(simulationTime, simulationBase.Name));
-                }
             }
         }
 
@@ -301,5 +327,37 @@ namespace Easy2Sim.Solvers.Discrete
         {
             ComponentRegister.RemoveComponent(Guid);
         }
+
+        public void AddEventForConnection(string connectionName, SimulationBase simBase, long time = -1)
+        {
+            List<Connection> outConnections = new List<Connection>();
+            List<Connection> inConnections = new List<Connection>();
+            foreach (Connection connection in SimulationEnvironment.Model.Connections)
+            {
+                if (connection.SourceName == connectionName && connection.Source == simBase)
+                    outConnections.Add(connection);
+
+                else if (connection.TargetName == connectionName && connection.Target == simBase)
+                    inConnections.Add(connection);
+            }
+
+            if (time == -1)
+            {
+                foreach (var outConnection in outConnections)
+                    AddEvent(outConnection.Target);
+
+                foreach (var inConnection in inConnections)
+                    AddEvent(inConnection.Source);
+            }
+            else
+            {
+                foreach (var outConnection in outConnections)
+                    AddEventAtTime(outConnection.Target, time);
+
+                foreach (var inConnection in inConnections)
+                    AddEventAtTime(inConnection.Source, time);
+            }
+        }
+
     }
 }

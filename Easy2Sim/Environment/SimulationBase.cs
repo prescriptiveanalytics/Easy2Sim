@@ -5,6 +5,9 @@ using System.Reflection;
 
 namespace Easy2Sim.Environment
 {
+   
+
+
     /// <summary>
     /// Base class for simulation components.
     /// </summary>
@@ -37,6 +40,16 @@ namespace Easy2Sim.Environment
         /// </summary>
         [JsonProperty]
         public int Index => _simulationIndex;
+
+        /// <summary>
+        /// Set the simulation index of a component manually.
+        /// Make sure that all indexes are correct!
+        /// </summary>
+        /// <param name="index"></param>
+        public void SetIndexManually(int index)
+        {
+            _simulationIndex = index;
+        }
 
         [JsonIgnore]
         private SimulationEnvironment? _simulationEnvironment;
@@ -131,6 +144,7 @@ namespace Easy2Sim.Environment
         }
 
 
+
         /// <summary>
         /// Initialize is called once before the simulation starts.
         /// Typical cpu expensive actions are done here: e.g. file access to initialize a component
@@ -156,5 +170,6 @@ namespace Easy2Sim.Environment
         /// Serialize to json uses the default constructor.
         /// </summary>
         public abstract string SerializeToJson();
+
     }
 }
