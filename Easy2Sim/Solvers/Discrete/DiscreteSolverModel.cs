@@ -22,11 +22,37 @@ namespace Easy2Sim.Solvers.Discrete
         public List<DiscreteEvent> EventList { get; set; }
 
 
+        public void AddEvent(long timeStamp, SimulationBase simBase)
+        {
+            DiscreteEvent result = new DiscreteEvent();
+            result.TimeStamp = timeStamp;
+            result.ComponentName = simBase.Name;
+            result.TimeStampIndex = simBase.Index +
+                                    HistoricEvents.Where(x => x.TimeStamp == timeStamp)
+                                        .Count(x => x.ComponentName == simBase.Name) *
+                                    simBase.SimulationEnvironment.Model.SimulationIndex;
+            if (AllowLoops)
+            {
+                EventList.Add(result);
+            }
+            else
+            {
+                //No loops allowed, check if the event exists already
+                if (!HistoricEvents.Any(x => (x.TimeStamp == timeStamp) && (x.ComponentName == simBase.Name)))
+                {
+                    EventList.Add(result);
+                }
+            }
+        }
+
+
         /// <summary>
-        /// Keep track of all components that have been added to a event list at a specific time
+        /// Keep track of historic events
         /// </summary>
         [JsonProperty]
-        public Dictionary<long, List<string>> ComponentsAtSimulationTime { get; set; }
+        public List<DiscreteEvent> HistoricEvents { get; set; }
+
+
 
         [JsonProperty]
         public Guid Guid { get; set; }
@@ -37,7 +63,7 @@ namespace Easy2Sim.Solvers.Discrete
         /// </summary>
         public DiscreteSolverModel()
         {
-            ComponentsAtSimulationTime = new Dictionary<long, List<string>>();
+            HistoricEvents = new List<DiscreteEvent>();
             EventList = new List<DiscreteEvent>();
         }
 
@@ -49,5 +75,6 @@ namespace Easy2Sim.Solvers.Discrete
         {
             return JsonConvert.SerializeObject(this);
         }
+
     }
 }

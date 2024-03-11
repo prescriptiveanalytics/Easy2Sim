@@ -1,5 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-using Easy2Sim.Connect;
+﻿using Easy2Sim.Connect;
 using Easy2Sim.Environment;
 using Newtonsoft.Json;
 
@@ -14,9 +13,20 @@ namespace Easy2Sim.Solvers.Discrete
         /// <summary>
         /// Represents all additional information that is necessary for the discrete solver
         /// </summary>
-        [JsonProperty] private DiscreteSolverModel _discreteSolverModel;
+        [JsonProperty] 
+        private DiscreteSolverModel _discreteSolverModel;
 
-        [JsonIgnore] public DiscreteSolverModel DiscreteSolverModel => _discreteSolverModel;
+        [JsonIgnore] 
+        public DiscreteSolverModel DiscreteSolverModel => _discreteSolverModel;
+
+        /// <summary>
+        /// Better access to the simulation time during the simulation
+        /// The real value is stored in the BaseModel
+        /// </summary>
+        [JsonIgnore] 
+        public long SimulationTime => BaseModel.SimulationTime;
+
+
         /// <summary>
         /// Represents all data that is necessary to run one event based simulation.
         /// </summary>
@@ -61,14 +71,13 @@ namespace Easy2Sim.Solvers.Discrete
 
             try
             {
-                AddInitialEvents();
-
                 // Stopping condition:
                 // A component sets the simulation to finished or
                 // no events left
                 while (!BaseModel.IsFinished && _discreteSolverModel.EventList.Any())
                 {
                     DiscreteEvent? discreteEvent = GetNextEvent();
+
                     if (discreteEvent == null)
                         break;
                     if (discreteEvent.TimeStamp > BaseModel.SimulationTime)
@@ -86,6 +95,12 @@ namespace Easy2Sim.Solvers.Discrete
                     if (BaseModel.Delay > 0)
                         Thread.Sleep(BaseModel.Delay);
                 }
+
+                foreach (SimulationBase simulationBase in SimulationEnvironment.Model.SimulationObjects.Values)
+                {
+                    simulationBase.End();
+                    UpdateConnections(simulationBase);
+                }
             }
             catch (Exception ex)
             {
@@ -100,7 +115,6 @@ namespace Easy2Sim.Solvers.Discrete
 
             try
             {
-                AddInitialEvents();
                 // Stopping condition:
                 // A component sets the simulation to finished or
                 // no events left or
@@ -140,24 +154,19 @@ namespace Easy2Sim.Solvers.Discrete
         }
 
         /// <summary>
-        /// Each components discrete event should be added at least once at time step 0
+        /// Add a event for each component at the current simulation time
         /// </summary>
-        private void AddInitialEvents()
+        public void AddEventForAllComponents()
         {
-            //Add events for each component
-            if (BaseModel.SimulationTime == 0)
-            {
-                List<SimulationBase> components = SimulationEnvironment.Model.SimulationObjects.Values.ToList();
+            AddEvents(SimulationEnvironment.Model.SimulationObjects.Values);
+        }
 
-                List<DiscreteEvent> initialEvents = _discreteSolverModel.EventList.Where(x => x.TimeStamp == 0).ToList();
-
-                List<SimulationBase> componentsWithoutEvents = components.Where(x => !initialEvents.Select(y => y.ComponentName).Contains(x.Name)).ToList();
-
-                foreach (SimulationBase simulationBase in componentsWithoutEvents)
-                {
-                    AddEvent(simulationBase);
-                }
-            }
+        /// <summary>
+        /// Add a event for each component at a specific simulation time
+        /// </summary>
+        public void AddEventForAllComponentsAtTime(long time)
+        {
+            AddEventsAtTime(SimulationEnvironment.Model.SimulationObjects.Values, time);
         }
 
         /// <summary>
@@ -206,7 +215,6 @@ namespace Easy2Sim.Solvers.Discrete
                 con.CurrentValue = con.SourceValue;
                 //Update the value in the target
                 con.SetValue();
-                AddEvent(con.Target);
             }
         }
 
@@ -219,33 +227,40 @@ namespace Easy2Sim.Solvers.Discrete
             //next event
             DiscreteEvent? discreteEvent = null;
             //lowest found simulation index
-            int simulationIndex = int.MaxValue;
+            long simulationIndex = int.MaxValue;
             try
             {
-                //If we do not hav events in our list we need to return null
-                if (_discreteSolverModel.EventList.Count == 0)
+                //If we do not have events in our list we need to return null
+                if (DiscreteSolverModel.EventList.Count == 0)
                     return null;
 
                 //Find the next simulation time => minimal time of all events
-                long nextSimTime = _discreteSolverModel.EventList.Select(x => x.TimeStamp).Min();
+                long nextSimTime = DiscreteSolverModel.EventList.Select(x => x.TimeStamp).Min();
 
+                //We only need information about events from the current simulation time
+                DiscreteSolverModel.HistoricEvents.RemoveAll(x => x.TimeStamp < nextSimTime);
                 //Iterate all events and find the event with the lowest simulation index
-                foreach (DiscreteEvent e in _discreteSolverModel.EventList.Where(x => x.TimeStamp == nextSimTime))
+                foreach (DiscreteEvent e in DiscreteSolverModel.EventList.Where(x => x.TimeStamp == nextSimTime))
                 {
                     SimulationBase? comp = SimulationEnvironment?.GetComponentByName(e.ComponentName);
                     if (comp == null)
                         continue;
 
-                    if (comp.Index < simulationIndex)
+                    if (e.TimeStampIndex < simulationIndex)
                     {
-                        simulationIndex = comp.Index;
+                        simulationIndex = e.TimeStampIndex;
                         discreteEvent = e;
                     }
                 }
 
                 //Remove the event from the event list and return it 
                 if (discreteEvent != null)
-                    _discreteSolverModel.EventList.Remove(discreteEvent);
+                {
+                    DiscreteSolverModel.EventList.Remove(discreteEvent);
+                    DiscreteSolverModel.HistoricEvents.Add(discreteEvent);
+
+                }
+
                 return discreteEvent;
 
             }
@@ -267,7 +282,16 @@ namespace Easy2Sim.Solvers.Discrete
             if (SimulationEnvironment == null)
                 return;
 
-            AddEventToTime(simulationBase, BaseModel.SimulationTime);
+            AddEventAtTime(simulationBase, BaseModel.SimulationTime);
+        }
+        /// <summary>
+        /// Add an even for a collection of simulation bases, e.g. when the output of a component changes a event for all inputs is generated
+        /// </summary>
+        /// <param name="connectedInputs"></param>
+        public void AddEvents(IEnumerable<SimulationBase> connectedInputs)
+        {
+            foreach (SimulationBase simBase in connectedInputs)   
+                AddEvent(simBase);
         }
 
         /// <summary>
@@ -277,39 +301,16 @@ namespace Easy2Sim.Solvers.Discrete
         /// </summary>
         public void AddEventAtTime(SimulationBase simulationBase, long simulationTime)
         {
-            if (SimulationEnvironment == null)
-                return;
-
-            AddEventToTime(simulationBase, simulationTime);
+            DiscreteSolverModel.AddEvent(simulationTime, simulationBase);
         }
 
-        private void AddEventToTime(SimulationBase simulationBase, long simulationTime)
+        /// <summary>
+        /// Add an even for a collection of simulation bases, e.g. when the output of a component changes a event for all inputs is generated
+        /// </summary>
+        public void AddEventsAtTime(IEnumerable<SimulationBase> simulationBases, long simulationTime)
         {
-            if (_discreteSolverModel.AllowLoops)
-            {
-                //If no event has been added at this simulation time yet, add a empty list
-                if (!_discreteSolverModel.ComponentsAtSimulationTime.ContainsKey(simulationTime))
-                    _discreteSolverModel.ComponentsAtSimulationTime[simulationTime] = new List<string>();
-
-                //We allow loops, so we only add the name to keep track of endless loops
-                _discreteSolverModel.ComponentsAtSimulationTime[simulationTime].Add(simulationBase.Name);
-
-                //Add the event
-                _discreteSolverModel.EventList.Add(new DiscreteEvent(simulationTime, simulationBase.Name));
-            }
-            else
-            {
-                //If no event has been added at this simulation time yet, add a empty list
-                if (!_discreteSolverModel.ComponentsAtSimulationTime.ContainsKey(simulationTime))
-                    _discreteSolverModel.ComponentsAtSimulationTime[simulationTime] = new List<string>();
-
-                //Only allow each component once at each time step
-                if (!_discreteSolverModel.ComponentsAtSimulationTime[simulationTime].Contains(simulationBase.Name))
-                {
-                    _discreteSolverModel.ComponentsAtSimulationTime[simulationTime].Add(simulationBase.Name);
-                    _discreteSolverModel.EventList.Add(new DiscreteEvent(simulationTime, simulationBase.Name));
-                }
-            }
+            foreach (SimulationBase simBase in simulationBases)
+                AddEventAtTime(simBase, simulationTime);
         }
 
         /// <summary>

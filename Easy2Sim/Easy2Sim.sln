@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34408.163
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Easy2Sim", "Easy2Sim.csproj", "{3BE37AAA-1E6E-41EF-99A3-B9FD50886F92}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Easy2Sim.Optimization", "..\Easy2Sim.Optimization\Easy2Sim.Optimization.csproj", "{DEA429CB-604C-4A5A-9554-B2EAA5DB3CAE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3BE37AAA-1E6E-41EF-99A3-B9FD50886F92}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3BE37AAA-1E6E-41EF-99A3-B9FD50886F92}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3BE37AAA-1E6E-41EF-99A3-B9FD50886F92}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3BE37AAA-1E6E-41EF-99A3-B9FD50886F92}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DEA429CB-604C-4A5A-9554-B2EAA5DB3CAE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DEA429CB-604C-4A5A-9554-B2EAA5DB3CAE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DEA429CB-604C-4A5A-9554-B2EAA5DB3CAE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DEA429CB-604C-4A5A-9554-B2EAA5DB3CAE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C33B355E-3552-4745-854C-B6B0390C641F}
+	EndGlobalSection
+EndGlobal

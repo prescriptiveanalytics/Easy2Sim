@@ -16,6 +16,11 @@ namespace Easy2Sim.Solvers.Dynamic
         [JsonProperty]
         private DynamicSolverModel _dynamicSolverModel;
 
+        /// <summary>
+        /// Better access to the simulation time during the simulation
+        /// The real value is stored in the BaseModel
+        /// </summary>
+        [JsonIgnore] public long SimulationTime => BaseModel.SimulationTime;
 
         /// <summary>
         /// Represents all data that is necessary to run one event based simulation.
@@ -76,6 +81,12 @@ namespace Easy2Sim.Solvers.Dynamic
                     //Delay is helpful for gui programming, as the simulation without delays would be way to fast in most cases
                     if (BaseModel.Delay > 0)
                         Thread.Sleep(BaseModel.Delay);
+                }
+
+                foreach (SimulationBase simulationBase in SimulationEnvironment.Model.SimulationObjects.Values)
+                {
+                    simulationBase.End();
+                    UpdateConnections(simulationBase);
                 }
             }
             catch (Exception ex)

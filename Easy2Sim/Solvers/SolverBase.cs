@@ -1,4 +1,6 @@
 ﻿using Easy2Sim.Environment;
+using Easy2Sim.Solvers.Discrete;
+using Easy2Sim.Solvers.Dynamic;
 using Newtonsoft.Json;
 
 namespace Easy2Sim.Solvers
@@ -24,6 +26,35 @@ namespace Easy2Sim.Solvers
         [JsonIgnore]
         public SimulationEnvironment? SimulationEnvironment => ComponentRegister.GetEnvironment(BaseModel.EnvironmentGuid);
 
+        /// <summary>
+        /// If the solver is a discrete solver it is returned.
+        /// Otherwise returns null.
+        /// </summary>
+        [JsonIgnore]
+        public DiscreteSolver? AsDiscreteSolver
+        {
+            get
+            {
+                if (this is DiscreteSolver discreteSolver)
+                    return discreteSolver;
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// If the solver is a discrete solver it is returned.
+        /// Otherwise returns null.
+        /// </summary>
+        [JsonIgnore]
+        public DynamicSolver? AsDynamicSolver
+        {
+            get
+            {
+                if (this is DynamicSolver dynamicSolver)
+                    return dynamicSolver;
+                return null;
+            }
+        }
 
         /// <summary>
         /// This method is called before a simulation is started and can be used to initialize components

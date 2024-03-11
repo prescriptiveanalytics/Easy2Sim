@@ -51,8 +51,6 @@ namespace Easy2Sim.Solvers
             Delay = 0;
             IsFinished = false;
         }
-
-
         public BaseSolverModel(Guid environmentGuid)
         {
             Results = new Dictionary<string, string>();

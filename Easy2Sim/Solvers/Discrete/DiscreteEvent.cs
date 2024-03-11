@@ -21,12 +21,16 @@ namespace Easy2Sim.Solvers.Discrete
         public long TimeStamp;
 
         /// <summary>
+        /// In case of loops, this value keeps track of the order of events
+        /// </summary>
+        [JsonProperty]
+        public long TimeStampIndex;
+
+        /// <summary>
         /// Name of the component which the event should be simulated at the specified time
         /// </summary>
         [JsonProperty]
         public string ComponentName { get; set; }
-
-
 
         /// <summary>
         /// Constructor that is used for serialization.

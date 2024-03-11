@@ -39,6 +39,36 @@ namespace Easy2Sim.Environment
             Model.SimulationObjects.Add(simulationBase.Index, simulationBase);
         }
 
+        /// <summary>
+        /// Add a new connection between to components in the environment.
+        /// <code>
+        /// SimulationEnvironment environment = new SimulationEnvironment();
+        /// DiscreteSolver solver = new DiscreteSolver(environment);
+        /// 
+        /// Component1 comp1 = new Component1(environment, solver);
+        /// Component2 comp2 = new Component2(environment, solver);
+        /// 
+        /// environment.AddConnection(comp1, "Output", comp2, "Input");
+        /// </code>
+        /// </summary>
+        /// <param name="output">
+        /// Component which has the output property/field
+        /// </param>
+        /// <param name="outputName">
+        /// Name of the output property/field
+        /// </param>
+        /// <param name="input">
+        /// Component which has the input property/field
+        /// </param>
+        /// <param name="inputName">
+        /// Name of the input property/field
+        /// </param>
+        /// <param name="sourceIndex">
+        /// If the source is an IEnumerable, we can link individual positions for the IEnumerable
+        /// </param>
+        /// <param name="targetIndex">
+        /// If the target is an IEnumerable, we can link individual positions for the IEnumerable
+        /// </param>
         public void AddConnection(SimulationBase output, string outputName, SimulationBase input, string inputName, int sourceIndex = -1, int targetIndex = -1)
         {
             FieldInfo? outputField = output.GetType().GetFields().FirstOrDefault(x => x.Name == outputName);
@@ -91,29 +121,53 @@ namespace Easy2Sim.Environment
             con.TargetName = inputName;
             Model.Connections.Add(con);
         }
-       
 
 
+
+
+
+
+        #region Logging
 
         /// <summary>
-        /// Sets the logger that is used in the environment.
-        /// The default logger that is used logs to the console.
+        /// Method can be used to send information over a Udp client.
         /// </summary>
-        /// <param name="logger"></param>
-        public void SetLogConfiguration(Logger logger)
-        {
-            if (Model.Easy2SimLogging != null) 
-                Model.Easy2SimLogging.Logger = logger;
-        }
-
+        /// <param name="message">
+        /// Message to send
+        /// </param>
+        /// <param name="ipAddress">
+        /// Destination ip Address
+        /// </param>
+        /// <param name="port">
+        /// Destination port where the message should be sent
+        /// </param>
         public void UdpInformation(string message, string ipAddress = "127.0.0.1", int port = 12345)
         {
-            if (Model.Easy2SimLogging != null) 
+            if (Model.Easy2SimLogging != null)
                 Model.Easy2SimLogging.UdpInformation(message, ipAddress, port);
         }
 
 
-
+        /// <summary>
+        /// Sets the <param name="logger"></param> that is used in the environment.
+        /// Make sure to set the minimum logging level to your desired level.
+        /// <code>
+        /// SimulationEnvironment environment = new();
+        /// Logger l1 = new LoggerConfiguration()
+        /// .MinimumLevel.Verbose()
+        /// .WriteTo.Console()
+        /// .CreateLogger();
+        /// environment.SetLogConfiguration(l1);
+        /// </code>
+        /// </summary>
+        /// <param name="logger">
+        /// Every serilog logger can be used in the framework.
+        /// </param>
+        public void SetLogConfiguration(Logger logger)
+        {
+            if (Model.Easy2SimLogging != null)
+                Model.Easy2SimLogging.Logger = logger;
+        }
 
         public void LogInformation(string message)
         {
@@ -127,11 +181,13 @@ namespace Easy2Sim.Environment
         {
             Model.Easy2SimLogging?.Logger?.Error(message);
         }
+
+
         public void LogFatal(string message)
         {
             Model.Easy2SimLogging?.Logger?.Fatal(message);
         }
-
+        #endregion Logging
 
         /// <summary>
         /// Remove this component from the register once it is disposed
@@ -181,6 +237,22 @@ namespace Easy2Sim.Environment
                 }
             }
             return null;
+        }
+
+        /// <summary>
+        /// Returns a list containing all components based on the given name
+        /// </summary>
+        public List<SimulationBase> GetComponentsContainingName(string name)
+        {
+            List<SimulationBase> components = new();
+            foreach (KeyValuePair<int, SimulationBase> component in Model.SimulationObjects)
+            {
+                if (component.Value.Name.Contains(name))
+                {
+                    components.Add(component.Value);
+                }
+            }
+            return components;
         }
 
         /// <summary>

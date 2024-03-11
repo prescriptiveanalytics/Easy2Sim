@@ -18,9 +18,10 @@ namespace Easy2Sim.Environment
             RegisteredComponents = new Dictionary<Guid, object>();
         }
         /// <summary>
-        /// Get one specific Simulation Environment by its unique Id
+        /// Get one specific Simulation Environment by its unique guid <paramref name="id"/>
         /// </summary>
-        /// <param name="id"></param>
+        /// <param name="id">
+        /// </param>
         /// <returns></returns>
         public static SimulationEnvironment? GetEnvironment(Guid id)
         {
@@ -31,7 +32,7 @@ namespace Easy2Sim.Environment
         }
 
         /// <summary>
-        /// Get one specific Solver by its unique ID
+        /// Get one specific Solver by its unique guid <paramref name="id"/>
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>
@@ -46,6 +47,7 @@ namespace Easy2Sim.Environment
         /// <summary>
         /// Add any component (solver, environment) to the component register
         /// </summary>
+        /// <param name="componentGuid">Guid of the component which should be added</param>
         public static void AddComponent(Guid componentGuid, object component)
         {
             RegisteredComponents.Add(componentGuid, component);
@@ -54,6 +56,7 @@ namespace Easy2Sim.Environment
         /// <summary>
         /// Remove any component (solver, environment) from the component register
         /// </summary>
+        /// <param name="componentGuid"> <c>Guid</c> of the component which should be removed</param>
         public static void RemoveComponent(Guid componentGuid)
         {
             RegisteredComponents.Remove(componentGuid);

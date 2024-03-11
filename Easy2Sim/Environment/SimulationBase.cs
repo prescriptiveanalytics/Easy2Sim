@@ -5,9 +5,6 @@ using System.Reflection;
 
 namespace Easy2Sim.Environment
 {
-   
-
-
     /// <summary>
     /// Base class for simulation components.
     /// </summary>
@@ -35,32 +32,52 @@ namespace Easy2Sim.Environment
         /// </summary>
         [JsonProperty]
         public string Name { get; private set; }
+
         /// <summary>
-        /// Index in the simulation, this value is used 
+        /// Index in the simulation.
+        /// In each time stamp in the simulation, components are called in order of the simulation index.
         /// </summary>
         [JsonProperty]
         public int Index => _simulationIndex;
 
         /// <summary>
-        /// Set the simulation index of a component manually.
+        /// Set the simulation  <paramref name="index"/> of a component manually.
         /// Make sure that all indexes are correct!
         /// </summary>
-        /// <param name="index"></param>
+        /// <param name="index">
+        /// The index is typically automatically generated based on creation order of the components.
+        /// This parameter allows to overwrite it.
+        /// </param>
         public void SetIndexManually(int index)
         {
             _simulationIndex = index;
         }
 
+        /// <summary>
+        /// Set the simulation <paramref name="name"/> of a component manually.
+        /// Make sure that all names are unique and correct!
+        /// </summary>
+        /// <param name="name">
+        /// A unique name for each simulation component is generated automatically.
+        /// This parameter allows to change it.  
+        /// </param>
+        public void SetNameManually(string name)
+        {
+            Name = name;
+        }
+
         [JsonIgnore]
         private SimulationEnvironment? _simulationEnvironment;
 
+        /// <summary>
+        /// Simulation environment where the simulation component is registered.
+        /// </summary>
         [JsonIgnore]
         public SimulationEnvironment? SimulationEnvironment
         {
             get
             {
                 _simulationEnvironment = ComponentRegister.GetEnvironment(SimulationEnvironmentGuid);
-
                 return _simulationEnvironment;
             }
         }
@@ -69,6 +86,9 @@ namespace Easy2Sim.Environment
         private SolverBase? _solverBase;
 
 
+        /// <summary>
+        /// Solver where the component is registered.
+        /// </summary>
         [JsonIgnore]
         public SolverBase? Solver
         {
@@ -81,7 +101,10 @@ namespace Easy2Sim.Environment
         }
 
 
-
+        /// <summary>
+        /// Automatically set the simulation index based on the current index in the environment.
+        /// This method is called, when a new component is created.
+        /// </summary>
         private void SetSimulationIndex()
         {
             if (SimulationEnvironment == null) return;
@@ -143,6 +166,43 @@ namespace Easy2Sim.Environment
             SimulationEnvironment?.AddComponent(this);
         }
 
+        /// <summary>
+        /// Returns all simulation bases for a given output parameter name
+        /// </summary>
+        /// <param name="output">Name of the output field or property</param>
+        /// <returns></returns>
+        public List<SimulationBase> GetConnectedInputComponents(string output)
+        {
+            if (SimulationEnvironment == null)
+                return new List<SimulationBase>();
+
+            List<SimulationBase> resultList = new List<SimulationBase>();
+            List<SimulationBase> connectedComponents = SimulationEnvironment.Model.Connections
+                .Where(x => x.Source == this)
+                .Where(x => x.SourceName == output)
+                .Select(x => x.Target).ToList();
+            resultList.AddRange(connectedComponents);
+            return resultList;
+        }
+
+        /// <summary>
+        /// Returns all simulation bases for a given input parameter name
+        /// </summary>
+        /// <param name="input">Name of the input field or property</param>
+        /// <returns></returns>
+        public List<SimulationBase> GetConnectedOutputComponents(string input)
+        {
+            if (SimulationEnvironment == null)
+                return new List<SimulationBase>();
+
+            List<SimulationBase> resultList = new List<SimulationBase>();
+            List<SimulationBase> connectedComponents = SimulationEnvironment.Model.Connections
+                .Where(x => x.Target == this)
+                .Where(x => x.TargetName == input)
+                .Select(x => x.Source).ToList();
+            resultList.AddRange(connectedComponents);
+            return resultList;
+        }
 
 
         /// <summary>
@@ -167,7 +227,13 @@ namespace Easy2Sim.Environment
         public virtual void DynamicCalculation() { }
 
         /// <summary>
+        /// This method is called at the end of the simulation
+        /// When calculate finish ends
+        /// </summary>
+        public virtual void End() { }
+        /// <summary>
         /// Serialize to json uses the default constructor.
+        /// Each component needs to be serializable.
         /// </summary>
         public abstract string SerializeToJson();
 
