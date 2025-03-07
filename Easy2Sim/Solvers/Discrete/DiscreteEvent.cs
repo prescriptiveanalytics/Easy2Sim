@@ -1,67 +1,83 @@
-﻿using Easy2Sim.Environment;
+﻿using Easy2Sim.Interfaces;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
-namespace Easy2Sim.Solvers.Discrete
+namespace Easy2Sim.Solvers.Discrete;
+
+/// <summary>
+/// One event in the discrete simulation.
+/// </summary>
+public record struct DiscreteEvent : IFrameworkBase, IComparable<DiscreteEvent>
 {
     /// <summary>
-    /// One event in the discrete simulation.
+    /// Unique Guid that can be used to identify class instances
     /// </summary>
-    public class DiscreteEvent : IFrameworkBase
+    [JsonProperty]
+    public Guid Guid { get; } 
+
+    /// <summary>
+    /// Timestamp at which the event should be handled
+    /// </summary>
+    [JsonProperty]
+    public long TimeStamp { get; }
+
+    /// <summary>
+    /// In case of loops, this value keeps track of the order of events
+    /// </summary>
+    [JsonProperty]
+    public long TimeStampIndex { get; set; }
+
+    /// <summary>
+    /// Name of the component which the event should be simulated at the specified time
+    /// </summary>
+    [JsonProperty]
+    public string ComponentName { get; }
+
+    /// <summary>
+    /// Constructor that is used for serialization.
+    /// Should not be used, as a environment guid is necessary.
+    /// </summary>
+    [JsonConstructor]
+    public DiscreteEvent()
     {
-        /// <summary>
-        /// Unique Guid that can be used to identify class instances
-        /// </summary>
-        [JsonProperty]
-        public Guid Guid { get; internal set; } = Guid.NewGuid();
+        Guid = Guid.NewGuid();
+        ComponentName = "";
+        TimeStamp = 0;
+        TimeStampIndex = 0;
+    }
 
-        /// <summary>
-        /// Timestamp at which the event should be handled
-        /// </summary>
-        [JsonProperty]
-        public long TimeStamp;
+    public bool Equals(DiscreteEvent? other)
+    {
+        if(other == null)
+            return false;
+        return Guid == other.Value.Guid;
+    }
 
-        /// <summary>
-        /// In case of loops, this value keeps track of the order of events
-        /// </summary>
-        [JsonProperty]
-        public long TimeStampIndex;
+    public override int GetHashCode() => Guid.GetHashCode();
 
-        /// <summary>
-        /// Name of the component which the event should be simulated at the specified time
-        /// </summary>
-        [JsonProperty]
-        public string ComponentName { get; set; }
+    /// <summary>
+    /// Default constructor that should be used. 
+    /// </summary>
+    /// <param name="timeStamp">Time step of the event</param>
+    /// <param name="componentName">Unique name of the component</param>
+    public DiscreteEvent(long timeStamp, string componentName)
+    {
+        Guid = Guid.NewGuid();
+        TimeStamp = timeStamp;
+        ComponentName = componentName;
+        TimeStampIndex = 0;
+    }
 
-        /// <summary>
-        /// Constructor that is used for serialization.
-        /// Should not be used, as a environment guid is necessary.
-        /// </summary>
-        public DiscreteEvent()
-        {
-            ComponentName = "";
-            TimeStamp = 0;
-        }
+    public override string ToString()
+    {
+        return "Event for " + ComponentName + " at " + TimeStamp;
+    }
 
-        /// <summary>
-        /// Default constructor that should be used. 
-        /// </summary>
-        public DiscreteEvent(long timeStamp, string componentName)
-        {
-            TimeStamp = timeStamp;
-            ComponentName = componentName;
-        }
 
-        public override string ToString()
-        {
-            return "Event for " + ComponentName + " at " + TimeStamp;
-        }
-
-        /// <summary>
-        /// Serialize to json uses the default constructor.
-        /// </summary>
-        public string SerializeToJson()
-        {
-            return JsonConvert.SerializeObject(this);
-        }
+    public int CompareTo(DiscreteEvent other)
+    {
+        if (TimeStamp != other.TimeStamp)
+            return TimeStamp.CompareTo(other.TimeStamp);
+        return TimeStampIndex.CompareTo(other.TimeStampIndex);
     }
 }

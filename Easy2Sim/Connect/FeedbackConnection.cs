@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using Easy2Sim.Environment;
+﻿using Easy2Sim.Environment;
 using Newtonsoft.Json;
 using Easy2Sim.Interfaces;
 using Easy2Sim.Solvers.Discrete;
@@ -10,14 +9,21 @@ namespace Easy2Sim.Connect;
 /// <summary>
 /// This class defines connections in the simulation framework
 /// </summary>
-public class Connection<T> : IConnection
+public class FeedbackConnection<T, T1> : IConnection
 {
+    /// <summary>
+    /// Is the connection created by a component connection
+    /// </summary>
     public bool IsComponentConnection { get; }
 
+    //Reapplies the connection, in case the connections are serialized and deserialized
     public void Reapply()
     {
-        if (Source != null)
+        if (Source != null && Target != null)
+        {
             Source.PropertyChanged += SourceOnPropertyChanged;
+            Target.FeedbackPropertyChanged += FeedbackValueChanged;
+        }
         else
             SimulationEnvironment?.LogEnvironmentError("Can not reapply connection: Source is null");
     }
@@ -48,7 +54,7 @@ public class Connection<T> : IConnection
     {
         get
         {
-            SimulationBase? source = SimulationEnvironment?.Model.SimulationObjects.Values.FirstOrDefault(x => x.Easy2SimName == SourceName);
+            SimulationBase? source = SimulationEnvironment?.Model.SimulationObjects.Values.FirstOrDefault(x => x.Easy2SimName == Source?.ParentName);
             if (source == null)
                 SimulationEnvironment?.LogEnvironmentError("SourceObject can not be found in connection: " + Guid);
             return source;
@@ -59,7 +65,7 @@ public class Connection<T> : IConnection
     {
         get
         {
-            SimulationBase? target = SimulationEnvironment?.Model.SimulationObjects.Values.FirstOrDefault(x => x.Easy2SimName == TargetName);
+            SimulationBase? target = SimulationEnvironment?.Model.SimulationObjects.Values.FirstOrDefault(x => x.Easy2SimName == Target?.ParentName);
             if (target == null)
                 SimulationEnvironment?.LogEnvironmentError("TargetObject can not be found in connection: " + Guid);
             return target;
@@ -68,7 +74,7 @@ public class Connection<T> : IConnection
 
 
     [JsonIgnore]
-    public SimulationValue<T>? Source
+    public FeedbackSimulationValue<T, T1>? Source
     {
         get
         {
@@ -81,28 +87,28 @@ public class Connection<T> : IConnection
                 PropertyInfo propertyInfo = properties.FirstOrDefault(x => x.Name.Contains(SourceProperty));
                 if (propertyInfo != null)
                 {
-                    return (SimulationValue<T>?)propertyInfo.GetValue(simObject);
+                    return (FeedbackSimulationValue<T, T1>?)propertyInfo.GetValue(simObject);
                 }
 
                 FieldInfo[] fInfos = simObject.GetType().GetFields();
                 FieldInfo fInfo = fInfos.FirstOrDefault(x => x.Name.Contains(SourceProperty));
                 if (fInfo != null)
                 {
-                    return (SimulationValue<T>?)fInfo.GetValue(simObject);
+                    return (FeedbackSimulationValue<T, T1>?)fInfo.GetValue(simObject);
                 }
             }
             catch (Exception e)
             {
-                SimulationEnvironment?.LogEnvironmentError($"Exception while retrieving Source in connection: {this.ToString()} (guid: " + Guid + ")");
+                SimulationEnvironment?.LogEnvironmentError("Exception while retrieving Source in feedback connection: " + Guid);
                 return null;
             }
 
-            SimulationEnvironment?.LogEnvironmentError($"Source not found in connection: {this.ToString()}" + Guid);
+            SimulationEnvironment?.LogEnvironmentError("Source not found in feedback connection: " + Guid);
             return null;
         }
     }
     [JsonIgnore]
-    public SimulationValue<T>? Target
+    public FeedbackSimulationValue<T, T1>? Target
     {
         get
         {
@@ -116,52 +122,25 @@ public class Connection<T> : IConnection
                 PropertyInfo propertyInfo = properties.FirstOrDefault(x => x.Name.Contains(TargetProperty));
                 if (propertyInfo != null)
                 {
-                    return (SimulationValue<T>)propertyInfo.GetValue(simObject);
+                    return (FeedbackSimulationValue<T, T1>)propertyInfo.GetValue(simObject);
                 }
 
                 FieldInfo[] fInfos = simObject.GetType().GetFields();
                 FieldInfo fInfo = fInfos.FirstOrDefault(x => x.Name.Contains(TargetProperty));
                 if (fInfo != null)
                 {
-                    return (SimulationValue<T>)fInfo.GetValue(simObject);
+                    return (FeedbackSimulationValue<T, T1>)fInfo.GetValue(simObject);
                 }
             }
             catch (Exception e)
             {
-
-                SimulationEnvironment?.LogEnvironmentError($"Exception while retrieving Target in connection: {this.ToString()} (guid: " + Guid +")");
+                SimulationEnvironment?.LogEnvironmentError("Exception while retrieving Target in feedback connection: " + Guid);
                 return null;
             }
-            SimulationEnvironment?.LogEnvironmentError($"Target not found in connection: {this.ToString()}" + Guid);
+            SimulationEnvironment?.LogEnvironmentError("Target not found in feedback connection: " + Guid);
             return null;
         }
     }
-    [JsonIgnore]
-    public dynamic DynamicTarget
-    {
-        get
-        {
-            SimulationBase simObject = SimulationEnvironment.Model.SimulationObjects
-                .FirstOrDefault(x => x.Value.Easy2SimName == TargetName).Value;
-            PropertyInfo[] properties = simObject.GetType().GetProperties();
-            // Get the PropertyInfo for the 'Value' property
-            PropertyInfo propertyInfo = properties.FirstOrDefault(x => x.Name.Contains(TargetProperty));
-            if (propertyInfo != null)
-            {
-                return (dynamic)propertyInfo.GetValue(simObject);
-            }
-
-            FieldInfo[] fInfos = simObject.GetType().GetFields();
-            FieldInfo fInfo = fInfos.FirstOrDefault(x => x.Name.Contains(TargetProperty));
-            if (fInfo != null)
-            {
-                return (dynamic)fInfo.GetValue(simObject);
-            }
-
-            return null;
-        }
-    }
-
 
     [JsonProperty]
     public string SourceName { get; set; }
@@ -173,14 +152,14 @@ public class Connection<T> : IConnection
     public string TargetProperty { get; set; }
 
     [JsonConstructor]
-    public Connection()
+    public FeedbackConnection()
     {
         SourceName = string.Empty;
         TargetName = string.Empty;
         SourceProperty = string.Empty;
         TargetProperty = string.Empty;
     }
-    public Connection(SimulationValue<T>? source, SimulationValue<T>? target, Guid environmentGuid, bool isComponentConnection)
+    public FeedbackConnection(FeedbackSimulationValue<T, T1>? source, FeedbackSimulationValue<T, T1>? target, Guid environmentGuid, bool isComponentConnection)
     {
         IsComponentConnection = isComponentConnection;
         EnvironmentGuid = environmentGuid;
@@ -194,6 +173,9 @@ public class Connection<T> : IConnection
 
             if (Source != null)
                 Source.PropertyChanged += SourceOnPropertyChanged;
+            
+            if (Target != null)
+                Target.FeedbackPropertyChanged += FeedbackValueChanged;
         }
         else
         {
@@ -204,52 +186,31 @@ public class Connection<T> : IConnection
             SimulationEnvironment?.LogEnvironmentError("Can not create connection: source or target is null");
         }
     }
-    public Connection(string sourceParent, string sourceProperty, string targetParent, string targetProperty, Guid environmentGuid, bool isComponentConnection)
+
+    private void FeedbackValueChanged(object? sender, PropertyValueChangedEventArgs<T1> e)
     {
-        IsComponentConnection = isComponentConnection;
-        EnvironmentGuid = environmentGuid;
-        SourceName = sourceParent;
-        TargetName = targetParent;
+        Source?.SetFeedbackValue(e.NewValue);
+        if (e.Solver is DiscreteSolver discreteSolver)
+            if (SourceObject != null)
+            {
+                discreteSolver.AddAfterTimeEvent(SourceObject);
 
-        SourceProperty = sourceProperty;
-        TargetProperty = targetProperty;
-
-        if (Source != null)
-            Source.PropertyChanged += SourceOnPropertyChanged;
+                SimulationEnvironment?.LogEnvironmentInfo($"Connection feedback value changed, add event for {SourceObject.Easy2SimName} at {discreteSolver.SimulationTime}");
+            }
 
     }
 
 
     private void SourceOnPropertyChanged(object? sender, PropertyValueChangedEventArgs<T> e)
     {
-        if (e.NewValue is IList && DynamicTarget.Value is IList)
-        {
-            DynamicTarget.Value.AddRange(e.NewValue);
-            DynamicTarget.ValueChanged = true;
-        }
-        else if (DynamicTarget.Value is List<T> targetList)
-        {
-            targetList.Add(e.NewValue);
-            DynamicTarget.ValueChanged = true;
-        }
-        else
-            //Sets the ValueChanged of the target to true
-            Target?.SetValue(e.NewValue);
-
+        //Sets the ValueChanged of the target to true
+        Target?.SetValue(e.NewValue);
         if (e.Solver is DiscreteSolver discreteSolver)
             if (TargetObject != null)
             {
-                switch (e.SimulationEventType)
-                {
-                    case SimulationEventType.DiscreteCalculation:
-                        discreteSolver.AddEvent(TargetObject);
-                        break;
-                    case SimulationEventType.PostCalculation:
-                        discreteSolver.AddAfterTimeEvent(TargetObject);
-                        break;
-                    case SimulationEventType.NoEvent:
-                        break;
-                }
+                discreteSolver.AddEvent(TargetObject);
+
+                SimulationEnvironment?.LogEnvironmentInfo($"Connection value changed, add event for {TargetObject.Easy2SimName} at {discreteSolver.SimulationTime}");
             }
     }
 
@@ -257,4 +218,5 @@ public class Connection<T> : IConnection
     {
         return $"{SourceName}\\{SourceProperty} => {TargetName}\\{TargetProperty}";
     }
+
 }
