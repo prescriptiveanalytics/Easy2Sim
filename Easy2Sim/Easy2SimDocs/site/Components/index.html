@@ -8,11 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://example.com/UseCase/">
+        <link rel="canonical" href="https://example.com/Components/">
       
       
-        <link rel="prev" href="../Solvers/">
+        <link rel="prev" href="..">
       
+      
+        <link rel="next" href="../Sine/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -20,7 +22,7 @@
     
     
       
-        <title>Example code - Sine visualization - Easy2Sim Documentation</title>
+        <title>Components and connections - Easy2Sim Documentation</title>
       
     
     
@@ -68,7 +70,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#using-easy2sim" class="md-skip">
+        <a href="#what-is-a-simulation-component" class="md-skip">
           Skip to content
         </a>
       
@@ -104,7 +106,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Example code - Sine visualization
+              Components and connections
             
           </span>
         </div>
@@ -179,10 +181,30 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../Components/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Components and connections
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -193,6 +215,42 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-a-simulation-component" class="md-nav__link">
+    <span class="md-ellipsis">
+      What is a simulation component?
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-a-connection-in-the-simulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      What is a connection in the simulation?
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -245,32 +303,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Example code - Sine visualization
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../UseCase/" class="md-nav__link">
         
   
   
@@ -281,44 +317,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#running-a-simulation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Running a simulation
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#implement-a-sine-simulation-component-and-visualize-in-xaml" class="md-nav__link">
-    <span class="md-ellipsis">
-      Implement a sine simulation component and visualize in xaml
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -340,8 +338,6 @@
   
   
   
-    
-  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -350,18 +346,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#running-a-simulation" class="md-nav__link">
+  <a href="#what-is-a-simulation-component" class="md-nav__link">
     <span class="md-ellipsis">
-      Running a simulation
+      What is a simulation component?
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#implement-a-sine-simulation-component-and-visualize-in-xaml" class="md-nav__link">
+  <a href="#what-is-a-connection-in-the-simulation" class="md-nav__link">
     <span class="md-ellipsis">
-      Implement a sine simulation component and visualize in xaml
+      What is a connection in the simulation?
     </span>
   </a>
   
@@ -383,42 +379,31 @@
 
 
 
-<div><h1 id="using-easy2sim">Using Easy2Sim</h1>
-<div class="admonition note annotate">
-<p class="admonition-title">Note</p>
-<p>Make sure that you know which simulation type should be implemented before you continue. (1)</p>
-</div>
-<ol>
-<li>Simulation types can be e.g. discrete event simulation or dynamic simulation</li>
-</ol>
-<p>To run a simulation this framework uses two key components:</p>
+  <h1>Components and connections</h1>
+
+<div><h2 id="what-is-a-simulation-component">What is a simulation component?</h2>
+<p>A simulation component describes a logical part of a system that should be modeled.
+An example would be a model of a  flow shop. This model can have simulation components for:</p>
 <ul>
-<li><strong>Simulation environment</strong><ul>
-<li>Components</li>
-<li>Links</li>
-<li>Logging (Serilog)</li>
+<li>Machines </li>
+<li>Vehicles</li>
+<li>Operators</li>
 </ul>
-</li>
-<li>Simulation specific <strong>Solver</strong><ul>
-<li>How are the connections resolved?</li>
-<li>How often are components called </li>
+<p>And each simulation component has attributes that describe its current state.
+A machine can for example have:</p>
+<ul>
+<li>Unique Id: Unique identifier of the machine</li>
+<li>Processing Time: Time it takes to do one task at the machine</li>
+<li>Setup time: Time it takes to swap the tool of the machine</li>
+<li>Energy consumption: How much energy is consumed while idle/producing?</li>
+<li>Buffer Size: Size of the buffer for raw material that is used at this machine</li>
 </ul>
-</li>
-</ul>
-<p>When creating a new component, it registers in the simulation environment.</p>
-<h2 id="running-a-simulation">Running a simulation</h2>
-<p>To start a simulation the steps are as follows:</p>
-<ol>
-<li>Implement simulation library</li>
-<li>Instantiate simulation environment and solver</li>
-<li>Add components to environment</li>
-<li>Add connections to the environment</li>
-<li>Run the simulation </li>
-</ol>
-<h2 id="implement-a-sine-simulation-component-and-visualize-in-xaml">Implement a sine simulation component and visualize in xaml</h2>
-<p><a href="../Files/Sine.zip">Sine code example</a></p>
-<p>Visualization of random values and the Sine (Sine uses code from above):</p>
-<p><div class="video-container"><video style="width:100%" muted controls alt="type:video"><source src="../Videos/cropped.mp4" type="video/mp4"></source></video></div></p></div>
+<h2 id="what-is-a-connection-in-the-simulation">What is a connection in the simulation?</h2>
+<p>A connection describes a information flow between components in the simulation.
+E.g. a machine could inform a vehicle that it needs more material for further production or 
+a machine finishes a production and informs the next machine.</p>
+<p>Another example is a component InputParser that parses sensor data.
+The parsed results can be provided to other components via a connection.</p></div>
 
 
 

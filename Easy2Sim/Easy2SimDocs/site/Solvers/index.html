@@ -8,11 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://example.com/UseCase/">
+        <link rel="canonical" href="https://example.com/Solvers/">
       
       
-        <link rel="prev" href="../Solvers/">
+        <link rel="prev" href="../Sine/">
       
+      
+        <link rel="next" href="../UseCase/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -20,7 +22,7 @@
     
     
       
-        <title>Example code - Sine visualization - Easy2Sim Documentation</title>
+        <title>Solvers - Easy2Sim Documentation</title>
       
     
     
@@ -68,7 +70,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#using-easy2sim" class="md-skip">
+        <a href="#dynamic-solver" class="md-skip">
           Skip to content
         </a>
       
@@ -104,7 +106,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Example code - Sine visualization
+              Solvers
             
           </span>
         </div>
@@ -223,28 +225,6 @@
       
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../Solvers/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Solvers
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
     
   
   
@@ -254,15 +234,13 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
-        
-      
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
           
   
   
   <span class="md-ellipsis">
-    Example code - Sine visualization
+    Solvers
     
   </span>
   
@@ -275,7 +253,7 @@
   
   
   <span class="md-ellipsis">
-    Example code - Sine visualization
+    Solvers
     
   </span>
   
@@ -288,8 +266,6 @@
   
   
   
-    
-  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -298,18 +274,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#running-a-simulation" class="md-nav__link">
+  <a href="#dynamic-solver" class="md-nav__link">
     <span class="md-ellipsis">
-      Running a simulation
+      Dynamic solver
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#implement-a-sine-simulation-component-and-visualize-in-xaml" class="md-nav__link">
+  <a href="#discrete-solver" class="md-nav__link">
     <span class="md-ellipsis">
-      Implement a sine simulation component and visualize in xaml
+      Discrete Solver
     </span>
   </a>
   
@@ -319,6 +295,28 @@
   
 </nav>
       
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../UseCase/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Example code - Sine visualization
+    
+  </span>
+  
+
+      </a>
     </li>
   
 
@@ -340,8 +338,6 @@
   
   
   
-    
-  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -350,18 +346,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#running-a-simulation" class="md-nav__link">
+  <a href="#dynamic-solver" class="md-nav__link">
     <span class="md-ellipsis">
-      Running a simulation
+      Dynamic solver
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#implement-a-sine-simulation-component-and-visualize-in-xaml" class="md-nav__link">
+  <a href="#discrete-solver" class="md-nav__link">
     <span class="md-ellipsis">
-      Implement a sine simulation component and visualize in xaml
+      Discrete Solver
     </span>
   </a>
   
@@ -383,42 +379,66 @@
 
 
 
-<div><h1 id="using-easy2sim">Using Easy2Sim</h1>
-<div class="admonition note annotate">
-<p class="admonition-title">Note</p>
-<p>Make sure that you know which simulation type should be implemented before you continue. (1)</p>
+  <h1>Solvers</h1>
+
+<div><h2 id="dynamic-solver">Dynamic solver</h2>
+<p>In a dynamic calculation, each components "DynamicCalculation" method is 
+executed once per time step.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:1"><input checked id="__tabbed_1_1" name="__tabbed_1" type="radio"><div class="tabbed-labels"><label for="__tabbed_1_1">Dynamic solver example </label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p class="annotate"></p><div class="language-csharp annotate select highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">SimulationEnvironment</span><span class="w"> </span><span class="n">environment</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">SimulationEnvironment</span><span class="p">();</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">DynamicSolver</span><span class="w"> </span><span class="n">solver</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">DynamicSolver</span><span class="p">(</span><span class="n">environment</span><span class="p">);</span><span class="c1">// (1)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">Sine</span><span class="w"> </span><span class="n">sine</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">Sine</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span><span class="w"> </span><span class="n">solver</span><span class="p">);</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">solver</span><span class="p">.</span><span class="n">CalculateTo</span><span class="p">(</span><span class="mi">100</span><span class="p">);</span>
+</span></code></pre></div>
+<ol>
+<li>Create the dynamic solver</li>
+</ol>
 </div>
+</div>
+</div>
+<h2 id="discrete-solver">Discrete Solver</h2>
+<p>When using a discrete solver, each component is added to time step 0.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:1"><input checked id="__tabbed_2_1" name="__tabbed_2" type="radio"><div class="tabbed-labels"><label for="__tabbed_2_1">Discrete solver example </label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p class="annotate"></p><div class="language-csharp annotate select highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">SimulationEnvironment</span><span class="w"> </span><span class="n">environment</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">SimulationEnvironment</span><span class="p">();</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">DiscreteSolver</span><span class="w"> </span><span class="n">discreteSolver</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">DiscreteSolver</span><span class="p">(</span><span class="n">environment</span><span class="p">);</span><span class="c1">// (1)</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">Sine</span><span class="w"> </span><span class="n">sine</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">Sine</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span><span class="w"> </span><span class="n">solver</span><span class="p">);</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">discreteSolver</span><span class="p">.</span><span class="n">AddEvent</span><span class="p">(</span><span class="n">sine</span><span class="p">);</span><span class="w"> </span><span class="c1">// (2)</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">discreteSolver</span><span class="p">.</span><span class="n">AddEventAtTime</span><span class="p">(</span><span class="n">sine</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">);</span><span class="w"> </span><span class="c1">// (3)</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">solver</span><span class="p">.</span><span class="n">CalculateTo</span><span class="p">(</span><span class="mi">100</span><span class="p">);</span>
+</span></code></pre></div>
 <ol>
-<li>Simulation types can be e.g. discrete event simulation or dynamic simulation</li>
+<li>Create the discrete solver</li>
+<li>Add an event for sine at the current time step</li>
+<li>Add an event for sine at time step 20</li>
 </ol>
-<p>To run a simulation this framework uses two key components:</p>
-<ul>
-<li><strong>Simulation environment</strong><ul>
-<li>Components</li>
-<li>Links</li>
-<li>Logging (Serilog)</li>
-</ul>
-</li>
-<li>Simulation specific <strong>Solver</strong><ul>
-<li>How are the connections resolved?</li>
-<li>How often are components called </li>
-</ul>
-</li>
-</ul>
-<p>When creating a new component, it registers in the simulation environment.</p>
-<h2 id="running-a-simulation">Running a simulation</h2>
-<p>To start a simulation the steps are as follows:</p>
+</div>
+</div>
+</div>
+<p>Further events have to be added. This are the possible ways to add events:</p>
 <ol>
-<li>Implement simulation library</li>
-<li>Instantiate simulation environment and solver</li>
-<li>Add components to environment</li>
-<li>Add connections to the environment</li>
-<li>Run the simulation </li>
-</ol>
-<h2 id="implement-a-sine-simulation-component-and-visualize-in-xaml">Implement a sine simulation component and visualize in xaml</h2>
-<p><a href="../Files/Sine.zip">Sine code example</a></p>
-<p>Visualization of random values and the Sine (Sine uses code from above):</p>
-<p><div class="video-container"><video style="width:100%" muted controls alt="type:video"><source src="../Videos/cropped.mp4" type="video/mp4"></source></video></div></p></div>
+<li>
+<p><strong>DiscreteSolver/AddEvent(SimulationBase simulationBase)</strong></p>
+<p>If a component should add a event in the same simulation time the solvers AddEvent can be used.</p>
+</li>
+<li>
+<p><strong>DiscreteSolver/AddEventAtTime(SimulationBase simulationBase, long simulationTime)</strong></p>
+<p>Similar to the first variant, however, a time can be specified</p>
+</li>
+<li>
+<p><strong>Connection changed</strong></p>
+<p>If two components are connected and the value changes, an event is automatically added for the connected component.
+To recognize a change the C# Equals method is used on the objects.</p>
+</li>
+</ol></div>
 
 
 
