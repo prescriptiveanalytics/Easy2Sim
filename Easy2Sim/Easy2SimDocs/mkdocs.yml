@@ -5,7 +5,7 @@ nav:
   - Components and connections: Components.md
   - Sine component: Sine.md
   - Solvers: Solvers.md
-  - Example code - Sine visualization: UseCase.md
+  - Sine code example: UseCase.md
 theme:
   name: material 
   custom_css:
