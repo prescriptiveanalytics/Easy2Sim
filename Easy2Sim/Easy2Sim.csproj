@@ -7,7 +7,7 @@
     <SignAssembly>False</SignAssembly>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Title>Easy2Sim</Title>
-    <Version>0.2.0</Version>
+    <Version>0.2.1</Version>
     <Authors>AlexanderKinast</Authors>
     <Company>RISC Software GmbH</Company>
     <Description>Easy2Sim is a simple, modern, and extendable simulation framework.</Description>
