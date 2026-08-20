@@ -1,0 +1,20 @@
+# Easy2Sim
+
+> Easy2Sim is an open source C# simulation framework (.NET 8, NuGet package `Easy2Sim`) developed by RISC Software GmbH. It supports dynamic (continuous) and discrete-event simulation and runs deterministically by default. Simulation components inherit from `SimulationBase`, expose state via `SimulationValue<T>` fields, are connected with `environment.AddConnection(...)` and are executed by a `DynamicSolver` or `DiscreteSolver`.
+
+## Documentation
+
+- [Getting started](https://www.prescriptiveanalytics.at/Easy2Sim/getting-started/): install the package and run a first simulation (complete runnable example)
+- [Components and connections](https://www.prescriptiveanalytics.at/Easy2Sim/Components/): build simulation components with SimulationBase and SimulationValue, connect them
+- [Solvers](https://www.prescriptiveanalytics.at/Easy2Sim/Solvers/): dynamic vs. discrete-event solver, events and scheduling
+- [Visualization (WPF)](https://www.prescriptiveanalytics.at/Easy2Sim/visualization/): live charts with LiveCharts and custom visualization components
+- [AI coding assistants](https://www.prescriptiveanalytics.at/Easy2Sim/ai-assistants/): AGENTS.md template for Easy2Sim projects
+
+## Single-file documentation
+
+- [llms-full.txt](https://www.prescriptiveanalytics.at/Easy2Sim/llms-full.txt): the complete documentation in one file, including all code examples
+
+## Links
+
+- [NuGet package](https://www.nuget.org/packages/Easy2Sim)
+- [Source code (GitHub)](https://github.com/prescriptiveanalytics/Easy2Sim)

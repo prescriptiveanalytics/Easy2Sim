@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <!-- LiveCharts 0.9.7 officially targets .NET Framework 4.x, but works fine
+         on net8.0-windows - the NU1701 compatibility warning can be ignored. -->
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ProjectReference (instead of a PackageReference) ensures that the
+         documentation examples always compile against the current source code. -->
+    <ProjectReference Include="..\..\..\Easy2Sim.csproj" />
+    <PackageReference Include="LiveCharts.Wpf" Version="0.9.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Reuse the Sine component from the console example, so it is only maintained once -->
+    <Compile Include="..\Easy2SimExamples\Sine.cs" Link="Domain\Sine.cs" />
+  </ItemGroup>
+
+</Project>

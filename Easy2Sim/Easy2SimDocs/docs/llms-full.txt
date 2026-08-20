@@ -1,0 +1,1048 @@
+<!-- Source: README.md -->
+
+# Easy2Sim
+
+## Description
+Easy2Sim is an open source C# simulation framework developed by the [RISC Software GmbH](https://www.risc-software.at).
+The goal of the framework is to allow fast development of simulation libraries and
+a good connection to other programs. The framework supports [dynamic (continuous)](https://en.wikipedia.org/wiki/Continuous_simulation) and [discrete-event](https://en.wikipedia.org/wiki/Discrete-event_simulation) simulation. By default the framework runs deterministically.
+
+A dynamic simulation describes a system that changes at every time step, e.g. water running down a river
+or a temperature regulation for a room. In a discrete-event simulation, events happen that change the system,
+e.g. a digital clock that changes the time every second.
+
+The simulation framework has been built by the RISC Software GmbH in the [Secure Prescriptive Analytics project](https://www.prescriptiveanalytics.at/).
+
+## Installation
+
+Easy2Sim is available as a [NuGet package](https://www.nuget.org/packages/Easy2Sim) and targets .NET 8:
+
+```powershell
+dotnet add package Easy2Sim
+```
+
+## Next steps
+
+- [Getting started](getting-started.md) — create and run your first simulation in a few minutes
+- [Components and connections](Components.md) — learn how to build your own simulation components
+- [Solvers](Solvers.md) — choose between the dynamic and the discrete-event solver
+- [Visualization (WPF)](visualization.md) — live charts and custom visualization components
+- [AI coding assistants](ai-assistants.md) — use Easy2Sim with AI coding assistants (llms.txt, AGENTS.md template)
+
+---
+
+<!-- Source: getting-started.md -->
+
+# Getting started
+
+This guide creates a complete, runnable simulation from scratch: a `Sine` component
+that produces a sine wave, executed by the dynamic solver.
+
+## Prerequisites
+
+- [.NET 8 SDK](https://dotnet.microsoft.com/download) or newer
+
+## 1. Create a new project
+
+```powershell
+dotnet new console -n MyFirstSim
+cd MyFirstSim
+```
+
+## 2. Add the Easy2Sim package
+
+```powershell
+dotnet add package Easy2Sim
+```
+
+## 3. Add your first simulation component
+
+Every simulation component inherits from `SimulationBase` and exposes its state as
+`SimulationValue<T>` fields. Add a new file `Sine.cs`:
+
+```csharp title="Sine.cs"
+using Easy2Sim.Connect;
+using Easy2Sim.Environment;
+using Easy2Sim.Solvers;
+using Newtonsoft.Json;
+
+namespace Easy2SimExamples;
+
+/// <summary>
+/// A simulation component that produces a sine wave.
+/// </summary>
+public class Sine : SimulationBase // (1)
+{
+    [JsonProperty]
+    public SimulationValue<double> Output;
+
+    [JsonProperty]
+    public SimulationValue<double> Amplitude;
+    [JsonProperty]
+    public SimulationValue<double> Frequency;
+    [JsonProperty]
+    public SimulationValue<double> Offset;
+    [JsonProperty]
+    public SimulationValue<int> NumberOfSamples;
+
+    // The parameterless constructor is needed for serialization (2)
+    public Sine()
+    {
+        Amplitude = new SimulationValue<double>(1.0, nameof(Amplitude), this, SimulationValueAttributes.Parameter);
+        Frequency = new SimulationValue<double>(1.0, nameof(Frequency), this, SimulationValueAttributes.Parameter);
+        Offset = new SimulationValue<double>(0.0, nameof(Offset), this, SimulationValueAttributes.Parameter);
+        Output = new SimulationValue<double>(0.0, nameof(Output), this, SimulationValueAttributes.Output); // (3)
+        NumberOfSamples = new SimulationValue<int>(100, nameof(NumberOfSamples), this, SimulationValueAttributes.Parameter);
+    }
+
+    // Use this constructor when you create components, it registers the component in the environment (4)
+    public Sine(SimulationEnvironment environment, SolverBase solver) : base(environment, solver)
+    {
+        Amplitude = new SimulationValue<double>(1.0, nameof(Amplitude), this, SimulationValueAttributes.Parameter);
+        Frequency = new SimulationValue<double>(1.0, nameof(Frequency), this, SimulationValueAttributes.Parameter);
+        Offset = new SimulationValue<double>(0.0, nameof(Offset), this, SimulationValueAttributes.Parameter);
+        Output = new SimulationValue<double>(0.0, nameof(Output), this, SimulationValueAttributes.Output);
+        NumberOfSamples = new SimulationValue<int>(100, nameof(NumberOfSamples), this, SimulationValueAttributes.Parameter);
+    }
+
+    // DynamicCalculation is called once per time step by the dynamic solver (5)
+    public override void DynamicCalculation()
+    {
+        if (Solver == null) return;
+
+        double timeInSeconds = (double)Solver.SimulationTime / NumberOfSamples.Value;
+        double angle = 2 * Math.PI * Frequency.Value * timeInSeconds + Offset.Value;
+        double sineValue = Amplitude.Value * Math.Sin(angle);
+
+        Output.SetValue(sineValue, SimulationEventType.DiscreteCalculation);
+    }
+}
+```
+
+## 4. Run the simulation
+
+Replace the content of `Program.cs`:
+
+```csharp title="Program.cs"
+using Easy2Sim.Environment;
+using Easy2Sim.Solvers.Dynamic;
+using Easy2SimExamples;
+
+// 1. Create the simulation environment and a solver
+SimulationEnvironment environment = new SimulationEnvironment();
+DynamicSolver solver = new DynamicSolver(environment);
+
+// 2. Create simulation components - they register themselves in the environment
+Sine sine = new Sine(environment, solver);
+
+// Print the output value every 10 time steps
+sine.Output.PropertyChanged += (_, _) =>
+{
+    if (solver.SimulationTime % 10 == 0)
+        Console.WriteLine($"t={solver.SimulationTime,3}  output={sine.Output.Value,8:F4}");
+};
+
+// 3. Initialize the simulation (calls Initialize() on every component)
+solver.Initialize();
+
+// 4. Run the simulation until time step 100
+solver.CalculateTo(100);
+```
+
+## 5. Execute
+
+```powershell
+dotnet run
+```
+
+Expected output:
+
+```text
+t=  0  output=  0.0000
+t= 10  output=  0.5878
+t= 20  output=  0.9511
+t= 30  output=  0.9511
+t= 40  output=  0.5878
+t= 50  output=  0.0000
+t= 60  output= -0.5878
+t= 70  output= -0.9511
+t= 80  output= -0.9511
+t= 90  output= -0.5878
+t=100  output= -0.0000
+```
+
+## How a simulation runs
+
+Every Easy2Sim simulation follows the same steps:
+
+1. Implement your simulation components (inherit from `SimulationBase`)
+2. Create a `SimulationEnvironment` and a solver
+3. Create the components — they register themselves in the environment
+4. Add connections between components (optional)
+5. Call `solver.Initialize()`, then run with `solver.CalculateTo(maxTime)` or `solver.CalculateFinish()`
+
+!!! note
+    Decide which simulation type you need before you start: use a `DynamicSolver`
+    when every component should be calculated once per time step (continuous
+    simulation), or a `DiscreteSolver` when components should only run when events
+    occur (discrete-event simulation). See [Solvers](Solvers.md) for details and a
+    complete discrete-event example.
+
+## Next steps
+
+- [Components and connections](Components.md) — simulation values, execution order and connections in detail
+- [Solvers](Solvers.md) — dynamic vs. discrete-event solver
+- [Visualization (WPF)](visualization.md) — visualize the simulation live with charts or custom WPF components
+
+---
+
+<!-- Source: Components.md -->
+
+﻿# Components and connections
+
+## What is a simulation component?
+A simulation component describes a logical part of a system that should be modeled.
+An example would be a model of a flow shop. This model can have simulation components for:
+
+  - Machines 
+  - Vehicles
+  - Operators
+
+Each simulation component has attributes that describe its current state.
+A machine can for example have:
+
+  - Unique Id: Unique identifier of the machine
+  - Processing Time: Time it takes to do one task at the machine
+  - Setup time: Time it takes to swap the tool of the machine
+  - Energy consumption: How much energy is consumed while idle/producing?
+  - Buffer Size: Size of the buffer for raw material that is used at this machine
+
+## The SimulationBase class
+
+Every simulation component inherits from the base class `SimulationBase`
+(namespace `Easy2Sim.Environment`). A component needs two constructors:
+
+- a **parameterless constructor**, which is required for serialization
+- a constructor `(SimulationEnvironment environment, SolverBase solver)` that calls
+  `: base(environment, solver)` and registers the component in the environment.
+  **Always use this constructor when you create components.**
+
+Once instantiated, the environment automatically assigns a simulation index based on the
+order of instantiation. This index defines the execution order of the components within
+one time step. Typically the simulation index starts at 0 and is increased by one per
+instantiated component. It can be changed with `SimulationBase.SetIndexManually(int index)` —
+even negative values are allowed. Make sure that all indexes stay unique!
+
+```csharp
+SimulationEnvironment environment = new SimulationEnvironment();
+DiscreteSolver solver = new DiscreteSolver(environment);
+
+Sine sine1 = new Sine(environment, solver); // (1)
+Sine sine2 = new Sine(environment, solver); // (2)
+
+sine1.SetIndexManually(3); // (3)
+```
+
+1. `sine1` gets the simulation index 0
+2. `sine2` gets the simulation index 1
+3. `sine1` now has the simulation index 3
+
+### Lifecycle methods
+
+Components can override the following methods:
+
+| Method | Called when |
+|--------|-------------|
+| `Initialize()` | Once before the simulation starts (via `solver.Initialize()`). Use it for expensive setup, e.g. file access. |
+| `DynamicCalculation()` | Once per simulation time step, when a `DynamicSolver` is used. |
+| `DiscreteCalculation()` | Whenever the `DiscreteSolver` processes an event for this component. |
+| `PostCalculation()` | To process feedback within the same simulation time step. |
+| `End()` | Once after the simulation has finished. |
+
+## Simulation values
+
+The state of a component is exposed via public fields or properties of type
+`SimulationValue<T>` (namespace `Easy2Sim.Connect`), each decorated with `[JsonProperty]`
+(Newtonsoft.Json) and created with one or more `SimulationValueAttributes`:
+
+| Attribute | Meaning |
+|-----------|---------|
+| `Input` | The component receives information through this value. |
+| `Output` | The component publishes information through this value; it can be connected to an `Input` of another component. |
+| `Parameter` | A simulation parameter that can be set from outside, e.g. from Excel. |
+| `Visualization` | Updated multiple times during a simulation run (for visualization/logging). |
+| `VisualizationOnChange` | Logged for visualization whenever the value changes. |
+| `VisualizationInitialize` | Pushed once to the visualization during initialization. |
+
+## A complete simulation component
+
+The following `Sine` component is part of the compilable example project that ships with
+this documentation, so it always matches the current API:
+
+```csharp title="Sine.cs"
+using Easy2Sim.Connect;
+using Easy2Sim.Environment;
+using Easy2Sim.Solvers;
+using Newtonsoft.Json;
+
+namespace Easy2SimExamples;
+
+/// <summary>
+/// A simulation component that produces a sine wave.
+/// </summary>
+public class Sine : SimulationBase // (1)
+{
+    [JsonProperty]
+    public SimulationValue<double> Output;
+
+    [JsonProperty]
+    public SimulationValue<double> Amplitude;
+    [JsonProperty]
+    public SimulationValue<double> Frequency;
+    [JsonProperty]
+    public SimulationValue<double> Offset;
+    [JsonProperty]
+    public SimulationValue<int> NumberOfSamples;
+
+    // The parameterless constructor is needed for serialization (2)
+    public Sine()
+    {
+        Amplitude = new SimulationValue<double>(1.0, nameof(Amplitude), this, SimulationValueAttributes.Parameter);
+        Frequency = new SimulationValue<double>(1.0, nameof(Frequency), this, SimulationValueAttributes.Parameter);
+        Offset = new SimulationValue<double>(0.0, nameof(Offset), this, SimulationValueAttributes.Parameter);
+        Output = new SimulationValue<double>(0.0, nameof(Output), this, SimulationValueAttributes.Output); // (3)
+        NumberOfSamples = new SimulationValue<int>(100, nameof(NumberOfSamples), this, SimulationValueAttributes.Parameter);
+    }
+
+    // Use this constructor when you create components, it registers the component in the environment (4)
+    public Sine(SimulationEnvironment environment, SolverBase solver) : base(environment, solver)
+    {
+        Amplitude = new SimulationValue<double>(1.0, nameof(Amplitude), this, SimulationValueAttributes.Parameter);
+        Frequency = new SimulationValue<double>(1.0, nameof(Frequency), this, SimulationValueAttributes.Parameter);
+        Offset = new SimulationValue<double>(0.0, nameof(Offset), this, SimulationValueAttributes.Parameter);
+        Output = new SimulationValue<double>(0.0, nameof(Output), this, SimulationValueAttributes.Output);
+        NumberOfSamples = new SimulationValue<int>(100, nameof(NumberOfSamples), this, SimulationValueAttributes.Parameter);
+    }
+
+    // DynamicCalculation is called once per time step by the dynamic solver (5)
+    public override void DynamicCalculation()
+    {
+        if (Solver == null) return;
+
+        double timeInSeconds = (double)Solver.SimulationTime / NumberOfSamples.Value;
+        double angle = 2 * Math.PI * Frequency.Value * timeInSeconds + Offset.Value;
+        double sineValue = Amplitude.Value * Math.Sin(angle);
+
+        Output.SetValue(sineValue, SimulationEventType.DiscreteCalculation);
+    }
+}
+```
+
+1. Base class of every simulation component
+2. The parameterless constructor is needed for serialization
+3. `Output` defines that this value can be connected to an `Input` of another component
+4. Use this constructor when you create components, it registers the component in the environment
+5. `DynamicCalculation` is called once per time step by the dynamic solver
+
+## What is a connection in the simulation?
+
+A connection describes an information flow between components in the simulation.
+E.g. a machine could inform a vehicle that it needs more material for further production or
+a machine finishes a production and informs the next machine.
+
+Another example is a component `InputParser` that parses sensor data.
+The parsed results can be provided to other components via a connection.
+
+### Creating connections
+
+Connections are created between a source `SimulationValue<T>` (an `Output`) and a target
+`SimulationValue<T>` (an `Input`) of the same type:
+
+```csharp
+environment.AddConnection(clock.Tick, printer.TickIn);
+```
+
+Whenever the source value changes, the new value is copied to the target value. If a
+`DiscreteSolver` is used, an event for the target component is additionally added at the
+current simulation time — the target component reacts automatically to every change.
+
+Alternatively, `environment.AddComponentConnection(component1, component2)` automatically
+connects all values whose names match (e.g. `Tick` → `Tick`, or `TickOut` → `TickIn`).
+
+A complete, runnable example with two connected components can be found on the
+[Solvers](Solvers.md#discrete-solver) page.
+
+---
+
+<!-- Source: Solvers.md -->
+
+﻿# Solvers
+
+The solver controls *when* components are calculated. Easy2Sim provides two main solvers:
+
+- **DynamicSolver** (namespace `Easy2Sim.Solvers.Dynamic`): every component's
+  `DynamicCalculation()` is executed once per simulation time step. Use it for
+  dynamic (continuous) simulations.
+- **DiscreteSolver** (namespace `Easy2Sim.Solvers.Discrete`): a component's
+  `DiscreteCalculation()` is only executed when an event for it is processed.
+  Use it for discrete-event simulations.
+
+Both solvers share the same lifecycle:
+
+```csharp
+solver.Initialize();              // calls Initialize() on every component, once
+solver.CalculateTo(100);          // run until simulation time 100
+// or
+solver.CalculateFinish();         // run until the simulation is finished
+```
+
+## Dynamic solver
+
+In a dynamic calculation, each component's `DynamicCalculation()` method is executed
+once per time step, in the order of the components' simulation indexes.
+
+The following complete program is the getting started example — it is compiled and run
+as part of the documentation example project:
+
+```csharp title="Program.cs"
+using Easy2Sim.Environment;
+using Easy2Sim.Solvers.Dynamic;
+using Easy2SimExamples;
+
+// 1. Create the simulation environment and a solver
+SimulationEnvironment environment = new SimulationEnvironment();
+DynamicSolver solver = new DynamicSolver(environment);
+
+// 2. Create simulation components - they register themselves in the environment
+Sine sine = new Sine(environment, solver);
+
+// Print the output value every 10 time steps
+sine.Output.PropertyChanged += (_, _) =>
+{
+    if (solver.SimulationTime % 10 == 0)
+        Console.WriteLine($"t={solver.SimulationTime,3}  output={sine.Output.Value,8:F4}");
+};
+
+// 3. Initialize the simulation (calls Initialize() on every component)
+solver.Initialize();
+
+// 4. Run the simulation until time step 100
+solver.CalculateTo(100);
+```
+
+Output:
+
+```text
+t=  0  output=  0.0000
+t= 10  output=  0.5878
+t= 20  output=  0.9511
+t= 30  output=  0.9511
+t= 40  output=  0.5878
+t= 50  output=  0.0000
+t= 60  output= -0.5878
+t= 70  output= -0.9511
+t= 80  output= -0.9511
+t= 90  output= -0.5878
+t=100  output= -0.0000
+```
+
+## Discrete solver
+
+With the discrete solver, a component is only calculated when an **event** for it exists
+in the event list. Each event points to a simulation time; the solver always processes
+the event with the lowest simulation time next. `CalculateFinish()` stops when no events
+are left or a component finishes the simulation; `CalculateTo(maxTime)` additionally stops
+when the next event lies beyond `maxTime`.
+
+The following complete example defines a `Clock` component that schedules a tick every
+10 time units and a `Printer` component that is triggered automatically through a
+connection:
+
+```csharp title="DiscreteExample.cs"
+using Easy2Sim.Connect;
+using Easy2Sim.Environment;
+using Easy2Sim.Solvers;
+using Easy2Sim.Solvers.Discrete;
+using Newtonsoft.Json;
+
+namespace Easy2SimExamples;
+
+/// <summary>
+/// A simulation component that produces a tick every 10 simulation time units.
+/// </summary>
+public class Clock : SimulationBase
+{
+    [JsonProperty]
+    public SimulationValue<long> Tick;
+
+    public Clock()
+    {
+        Tick = new SimulationValue<long>(0, nameof(Tick), this, SimulationValueAttributes.Output);
+    }
+
+    public Clock(SimulationEnvironment environment, SolverBase solver) : base(environment, solver)
+    {
+        Tick = new SimulationValue<long>(0, nameof(Tick), this, SimulationValueAttributes.Output);
+    }
+
+    // DiscreteCalculation is called by the discrete solver whenever an event
+    // for this component is processed
+    public override void DiscreteCalculation()
+    {
+        if (Solver == null) return;
+
+        // Publish the current simulation time to all connected components
+        Tick.SetValue(Solver.SimulationTime, SimulationEventType.DiscreteCalculation);
+
+        // Schedule the next tick 10 time units later
+        Solver.AsDiscreteSolver?.AddEventAtTime(this, Solver.SimulationTime + 10);
+    }
+}
+
+/// <summary>
+/// A simulation component that prints every value it receives on its input.
+/// </summary>
+public class Printer : SimulationBase
+{
+    [JsonProperty]
+    public SimulationValue<long> TickIn;
+
+    public Printer()
+    {
+        TickIn = new SimulationValue<long>(0, nameof(TickIn), this, SimulationValueAttributes.Input);
+    }
+
+    public Printer(SimulationEnvironment environment, SolverBase solver) : base(environment, solver)
+    {
+        TickIn = new SimulationValue<long>(0, nameof(TickIn), this, SimulationValueAttributes.Input);
+    }
+
+    public override void DiscreteCalculation()
+    {
+        Console.WriteLine($"t={Solver?.SimulationTime,3}  printer received tick {TickIn.Value}");
+    }
+}
+
+public static class DiscreteExample
+{
+    public static void Run()
+    {
+        SimulationEnvironment environment = new SimulationEnvironment();
+        DiscreteSolver solver = new DiscreteSolver(environment);
+
+        Clock clock = new Clock(environment, solver);
+        Printer printer = new Printer(environment, solver);
+
+        // Connect the clock output to the printer input.
+        // Whenever Tick changes, the new value is copied to TickIn and an event
+        // for the printer is added automatically at the current simulation time.
+        environment.AddConnection(clock.Tick, printer.TickIn);
+
+        solver.Initialize();
+
+        // Schedule the first event at the current simulation time (0).
+        // All further events are scheduled by the clock itself.
+        solver.AddEvent(clock);
+
+        solver.CalculateTo(50);
+    }
+}
+```
+
+Call it from your program entry point:
+
+```csharp
+Easy2SimExamples.DiscreteExample.Run();
+```
+
+Output:
+
+```text
+t=  0  printer received tick 0
+t= 10  printer received tick 10
+t= 20  printer received tick 20
+t= 30  printer received tick 30
+t= 40  printer received tick 40
+t= 50  printer received tick 50
+```
+
+### Ways to add events
+
+1. **`DiscreteSolver.AddEvent(SimulationBase simulationBase)`**
+
+    Adds an event for the component at the current simulation time.
+
+2. **`DiscreteSolver.AddEventAtTime(SimulationBase simulationBase, long simulationTime)`**
+
+    Adds an event for the component at a specific simulation time.
+
+3. **Connection changed**
+
+    If two components are connected and the source value changes, an event for the
+    connected target component is automatically added at the current simulation time.
+    This is how the `Printer` in the example above is triggered — no events are
+    scheduled for it manually.
+
+4. **`DiscreteSolver.AddEventForAllComponents()` / `AddEventForAllComponentsAtTime(long time)`**
+
+    Adds an event for every component in the environment.
+
+---
+
+<!-- Source: visualization.md -->
+
+# Visualization (WPF)
+
+Easy2Sim simulations can be visualized in WPF in two ways:
+
+1. **Live charts in your own WPF application** — subscribe to value changes and update
+   a chart (e.g. with [LiveCharts](https://lvcharts.com/)). Simple and ideal for a quick
+   visualization of a few values.
+2. **Custom visualization components** with the Easy2Sim.Visualization application —
+   every simulation component gets its own WPF user control (e.g. a machine, a tank, a
+   vehicle) that is placed on a canvas and updated from the visualization log. Suited
+   for visualizing complete simulation models.
+
+Both approaches build on the same mechanism: changes of `SimulationValue` fields raise
+events and can additionally be written to the visualization log.
+
+## Preparing the simulation
+
+### Marking values for visualization
+
+Add one of the visualization attributes to the `SimulationValue` fields that should be
+visible in the visualization:
+
+| Attribute | Behavior |
+|-----------|----------|
+| `Visualization` | The value is logged at every simulation time step. |
+| `VisualizationOnChange` | The value is only logged when it changed. |
+| `VisualizationInitialize` | The value is logged once during initialization (e.g. layout information). |
+
+Attributes can be combined:
+
+```csharp
+FillLevel = new SimulationValue<double>(0.0, nameof(FillLevel), this,
+    new List<SimulationValueAttributes>
+    {
+        SimulationValueAttributes.Parameter,
+        SimulationValueAttributes.VisualizationOnChange
+    });
+```
+
+### The visualization log
+
+During a simulation run, marked values are written to the `VisualizationLogger` of the
+environment as a semicolon-separated line:
+
+```text
+{SimulationTime};{ComponentClassName};{SimulationIndex};{PropertyName};{Value}
+```
+
+Example — a component of type `Tank` with simulation index 0 at time step 42:
+
+```text
+42;Tank;0;FillLevel;87.5
+```
+
+The logger is a normal Serilog logger, so any Serilog sink can be attached — write to a
+file for later playback, or publish to MQTT for a live visualization in a separate
+application:
+
+```csharp
+environment.Model.Easy2SimLogging.VisualizationLogger = new LoggerConfiguration()
+    .WriteTo.File("visualization.log")
+    .CreateLogger();
+```
+
+## Option 1: Live charts in your own WPF application
+
+A complete, compilable example project ships with this documentation
+(`examples/Easy2SimVisualizationWpf`). The important pieces:
+
+### Project setup
+
+The project targets `net8.0-windows`, enables WPF and references LiveCharts:
+
+```xml title="Easy2SimVisualizationWpf.csproj (excerpt)"
+<PropertyGroup>
+  <OutputType>WinExe</OutputType>
+  <TargetFramework>net8.0-windows</TargetFramework>
+  <UseWPF>true</UseWPF>
+</PropertyGroup>
+<ItemGroup>
+  <PackageReference Include="Easy2Sim" Version="0.3.0" />
+  <PackageReference Include="LiveCharts.Wpf" Version="0.9.7" />
+</ItemGroup>
+```
+
+### View model — run the simulation and feed the chart
+
+```csharp title="MainWindowVm.cs"
+using System.Windows;
+using Easy2Sim.Environment;
+using Easy2Sim.Solvers.Dynamic;
+using Easy2SimExamples;
+
+namespace Easy2SimVisualizationWpf;
+
+public class MainWindowVm
+{
+    public MainWindowModel Model { get; } = new MainWindowModel();
+
+    public MainWindowVm()
+    {
+        // Run the simulation on a background thread so the UI stays responsive
+        Task.Run(RunSimulation);
+    }
+
+    private void RunSimulation()
+    {
+        SimulationEnvironment environment = new SimulationEnvironment();
+        DynamicSolver solver = new DynamicSolver(environment);
+
+        // Slow the simulation down - without a delay it finishes
+        // before the window is even shown
+        solver.BaseModel.Delay = 20;
+
+        Sine sine = new Sine(environment, solver);
+
+        // Every SimulationValue raises a PropertyChanged event when its value changes.
+        // Chart updates must happen on the UI thread, therefore the Dispatcher is used.
+        sine.Output.PropertyChanged += (_, _) =>
+        {
+            double value = sine.Output.Value;
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                // Keep only the last 200 values in the chart
+                if (Model.SineValues.Count > 200)
+                    Model.SineValues.RemoveAt(0);
+                Model.SineValues.Add(value);
+            });
+        };
+
+        solver.Initialize();
+        solver.CalculateTo(500);
+    }
+}
+```
+
+### Model — the data shown in the chart
+
+```csharp title="MainWindowModel.cs"
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using LiveCharts;
+
+namespace Easy2SimVisualizationWpf;
+
+/// <summary>
+/// Holds the data that is shown in the view.
+/// </summary>
+public class MainWindowModel : INotifyPropertyChanged
+{
+    private ChartValues<double> _sineValues = new ChartValues<double>();
+
+    /// <summary>
+    /// All data points that are shown in the chart.
+    /// ChartValues implements INotifyCollectionChanged, so the chart
+    /// redraws automatically when values are added or removed.
+    /// </summary>
+    public ChartValues<double> SineValues
+    {
+        get => _sineValues;
+        set
+        {
+            _sineValues = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+}
+```
+
+### View — bind a chart to the values
+
+```xml title="MainWindow.xaml"
+<Window x:Class="Easy2SimVisualizationWpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
+        Title="Easy2Sim visualization" Height="450" Width="800">
+    <Grid>
+        <lvc:CartesianChart>
+            <lvc:CartesianChart.Series>
+                <!-- ChartValues implement INotifyCollectionChanged, the chart updates automatically -->
+                <lvc:LineSeries Title="Sine output"
+                                Values="{Binding Model.SineValues}"
+                                PointGeometry="{x:Null}" />
+            </lvc:CartesianChart.Series>
+        </lvc:CartesianChart>
+    </Grid>
+</Window>
+```
+
+### Things to watch out for
+
+- **Run the simulation on a background thread** (`Task.Run`), otherwise the UI freezes
+  while the simulation calculates.
+- **Set `solver.BaseModel.Delay`** — without a delay a small simulation finishes before
+  the window is even shown.
+- **Update UI bound data on the UI thread.** `SimulationValue.PropertyChanged` is raised
+  on the simulation thread, therefore use `Application.Current.Dispatcher` to modify
+  chart values.
+- The simulation component from the [getting started](getting-started.md) example is
+  reused unchanged — visualization works without modifying the simulation.
+
+A variant of this approach that passes the values through the Serilog logging pipeline
+(with a sink component and a custom `ILogEventSink`) is available for download:
+[Sine code example](./Files/Sine.zip). The video below shows the result — the sine
+output and random values visualized live:
+
+![type:video](./Videos/cropped.mp4)
+
+## Option 2: Custom visualization components (Easy2Sim.Visualization)
+
+For larger models, Easy2Sim provides a visualization application that renders one WPF
+user control per simulation component on a canvas. The application plays back a
+visualization log file or receives live values via MQTT (using the `MqttVisualizationSink`
+from Easy2Sim.Persist).
+
+!!! note
+    The `Easy2Sim.Visualization` and `Easy2Sim.Persist` packages are currently
+    distributed through the project's own NuGet feed — they are not published on
+    nuget.org yet.
+
+### Naming and matching conventions
+
+The visualization application connects simulation data and user controls by **name**:
+
+- For a simulation component with class name `Tank`, a user control named
+  `TankVisualization` is created (class name + `Visualization`).
+- For every line in the visualization log, the **dependency property whose name matches
+  the `SimulationValue` property name** is set via reflection. If your simulation
+  component has a `SimulationValue<double>` named `FillLevel`, the control needs a
+  dependency property named `FillLevel`.
+- The `Id` of a control is the simulation index of the component, so multiple instances
+  of the same component type are distinguished.
+
+### Canvas size: the VisualizationArea component
+
+Add one `VisualizationArea` component (namespace `Easy2Sim_Visualization.Components`) to
+the simulation. Its `Width` and `Height` parameters are sent once via
+`VisualizationInitialize` and define the size of the visualization canvas
+(default: 1000 x 1000):
+
+```csharp
+VisualizationArea area = new VisualizationArea(environment, solver);
+environment.SetParameter(area, nameof(VisualizationArea.Width), 1200.0);
+environment.SetParameter(area, nameof(VisualizationArea.Height), 800.0);
+```
+
+### Writing a visualization control
+
+A visualization control is a WPF `UserControl` that inherits from `UserControlBase`
+(namespace `Easy2Sim_Visualization.Components`). The base class requires the members
+`Id`, `Easy2SimName`, `Left`, `Top`, `ControlWidth` and `ControlHeight` — implement them
+as dependency properties. All visual state of the component is exposed as additional
+dependency properties whose names match the simulation value names.
+
+The following example shows a complete control for a `Tank` simulation component with a
+`SimulationValue<double>` named `FillLevel`:
+
+```xml title="TankVisualization.xaml"
+<components:UserControlBase x:Class="MyVisualization.Components.TankVisualization"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:components="clr-namespace:Easy2Sim_Visualization.Components;assembly=Easy2Sim_Visualization"
+             Width="{Binding ControlWidth}"
+             Height="{Binding ControlHeight}">
+    <Viewbox HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+        <!-- Draw on a fixed-size canvas inside a Viewbox:
+             the control scales automatically to any size -->
+        <Canvas Width="100" Height="200">
+            <!-- Tank outline -->
+            <Rectangle Stroke="Black" StrokeThickness="2"
+                       Canvas.Left="10" Canvas.Top="10" Width="80" Height="180"
+                       Fill="LightGray" />
+            <!-- Fill level bar, height and position follow the FillLevel value -->
+            <Rectangle Canvas.Left="10" Width="80" Fill="DodgerBlue"
+                       Canvas.Top="{Binding FillLevelTop}"
+                       Height="{Binding FillLevel}" />
+            <TextBlock Text="{Binding FillLevel, StringFormat={}{0:0}}" FontSize="30"
+                       Canvas.Left="30" Canvas.Top="80" />
+        </Canvas>
+    </Viewbox>
+</components:UserControlBase>
+```
+
+```csharp title="TankVisualization.xaml.cs"
+using System.Windows;
+
+namespace MyVisualization.Components;
+
+public partial class TankVisualization
+{
+    public TankVisualization()
+    {
+        InitializeComponent();
+        DataContext = this; // Bind the XAML directly to the dependency properties
+    }
+
+    // --- Members required by UserControlBase ---
+
+    public static readonly DependencyProperty IdProperty =
+        DependencyProperty.Register(nameof(Id), typeof(int), typeof(TankVisualization), new PropertyMetadata(0));
+    public override int Id
+    {
+        get => (int)GetValue(IdProperty);
+        set => SetValue(IdProperty, value);
+    }
+
+    public static readonly DependencyProperty Easy2SimNameProperty =
+        DependencyProperty.Register(nameof(Easy2SimName), typeof(string), typeof(TankVisualization), new PropertyMetadata(""));
+    public override string Easy2SimName
+    {
+        get => (string)GetValue(Easy2SimNameProperty);
+        set => SetValue(Easy2SimNameProperty, value);
+    }
+
+    public static readonly DependencyProperty LeftProperty =
+        DependencyProperty.Register(nameof(Left), typeof(double), typeof(TankVisualization), new PropertyMetadata(0.0));
+    public override double Left
+    {
+        get => (double)GetValue(LeftProperty);
+        set => SetValue(LeftProperty, value);
+    }
+
+    public static readonly DependencyProperty TopProperty =
+        DependencyProperty.Register(nameof(Top), typeof(double), typeof(TankVisualization), new PropertyMetadata(0.0));
+    public override double Top
+    {
+        get => (double)GetValue(TopProperty);
+        set => SetValue(TopProperty, value);
+    }
+
+    public static readonly DependencyProperty ControlWidthProperty =
+        DependencyProperty.Register(nameof(ControlWidth), typeof(double), typeof(TankVisualization), new PropertyMetadata(100.0));
+    public override double ControlWidth
+    {
+        get => (double)GetValue(ControlWidthProperty);
+        set => SetValue(ControlWidthProperty, value);
+    }
+
+    public static readonly DependencyProperty ControlHeightProperty =
+        DependencyProperty.Register(nameof(ControlHeight), typeof(double), typeof(TankVisualization), new PropertyMetadata(200.0));
+    public override double ControlHeight
+    {
+        get => (double)GetValue(ControlHeightProperty);
+        set => SetValue(ControlHeightProperty, value);
+    }
+
+    // --- Visualization state, names match the SimulationValue names ---
+
+    // Matches SimulationValue<double> FillLevel of the Tank component.
+    // Set automatically by the visualization application for every logged value.
+    public static readonly DependencyProperty FillLevelProperty =
+        DependencyProperty.Register(nameof(FillLevel), typeof(double), typeof(TankVisualization),
+            new PropertyMetadata(0.0, OnFillLevelChanged));
+    public double FillLevel
+    {
+        get => (double)GetValue(FillLevelProperty);
+        set => SetValue(FillLevelProperty, value);
+    }
+
+    // Derived value used to position the fill level bar (the tank is 180 units high).
+    // Recalculated whenever FillLevel changes, so the binding updates automatically.
+    public static readonly DependencyProperty FillLevelTopProperty =
+        DependencyProperty.Register(nameof(FillLevelTop), typeof(double), typeof(TankVisualization), new PropertyMetadata(190.0));
+    public double FillLevelTop
+    {
+        get => (double)GetValue(FillLevelTopProperty);
+        private set => SetValue(FillLevelTopProperty, value);
+    }
+
+    private static void OnFillLevelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is TankVisualization control)
+            control.FillLevelTop = 190 - control.FillLevel * 1.8;
+    }
+}
+```
+
+### Tips for visualization controls
+
+- Set `DataContext = this` in the constructor and bind the XAML directly to the
+  dependency properties.
+- Draw the control on a fixed-size `Canvas` inside a `Viewbox` — the control then scales
+  automatically to `ControlWidth`/`ControlHeight`.
+- Use property-changed callbacks (`PropertyMetadata` with a callback) or derived
+  properties to translate values into visuals — e.g. map a fill level to a color or a
+  boolean to a visibility.
+- Position and size can also be driven by the simulation itself: let the simulation
+  component implement `IVisualizationComponent` (`Easy2Sim.Interfaces`) and mark
+  `Left`, `Top`, `ControlWidth` and `ControlHeight` with `VisualizationInitialize`.
+
+---
+
+<!-- Source: ai-assistants.md -->
+
+# AI coding assistants
+
+This documentation is optimized for consumption by AI coding assistants (GitHub Copilot,
+OpenCode, Claude Code, Cursor, ...), so they can scaffold and extend Easy2Sim projects
+quickly and correctly.
+
+## llms.txt
+
+This site provides machine-readable entry points following the [llms.txt convention](https://llmstxt.org):
+
+- [llms.txt](https://www.prescriptiveanalytics.at/Easy2Sim/llms.txt) — a compact index of the documentation
+- [llms-full.txt](https://www.prescriptiveanalytics.at/Easy2Sim/llms-full.txt) — the **complete documentation in a single file**, including all code examples
+
+Point your assistant at `llms-full.txt` when you want it to learn Easy2Sim from scratch.
+
+## AGENTS.md template
+
+Many coding agents automatically read an `AGENTS.md` file in the project root.
+Copy the following template into your Easy2Sim project:
+
+```markdown title="AGENTS.md"
+# Project rules
+
+- C#/.NET 8 simulation project using the Easy2Sim framework (NuGet package: `Easy2Sim`)
+- Documentation: https://www.prescriptiveanalytics.at/Easy2Sim/
+  (single-file version for LLMs: https://www.prescriptiveanalytics.at/Easy2Sim/llms-full.txt)
+
+## Conventions
+
+- Simulation components inherit from `SimulationBase` (namespace `Easy2Sim.Environment`)
+- Each component has a parameterless constructor (needed for serialization) and a
+  constructor `(SimulationEnvironment environment, SolverBase solver)` that calls
+  `: base(environment, solver)` — always use the latter to create components
+- State is exposed via public `SimulationValue<T>` fields (namespace `Easy2Sim.Connect`)
+  with `[JsonProperty]` and an attribute: `Input`, `Output` or `Parameter`
+- Connect components with `environment.AddConnection(source.OutputValue, target.InputValue)`
+- Use `DynamicSolver` for continuous simulations (override `DynamicCalculation()`),
+  `DiscreteSolver` for event-based simulations (override `DiscreteCalculation()` and
+  schedule events with `solver.AddEvent(...)` / `solver.AddEventAtTime(...)`)
+- Run a simulation with `solver.Initialize(); solver.CalculateTo(maxTime);`
+
+## Definition of done
+
+- `dotnet build` succeeds without warnings
+- `dotnet run` executes the simulation without exceptions
+```
+
+## Tips
+
+- Give the assistant the [getting started example](getting-started.md) as a starting
+  point — it is a complete, runnable program.
+- All code examples in this documentation are compiled against the current Easy2Sim
+  source code, so an assistant can safely copy them.

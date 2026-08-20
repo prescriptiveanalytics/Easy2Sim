@@ -1,0 +1,16 @@
+<Window x:Class="Easy2SimVisualizationWpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
+        Title="Easy2Sim visualization" Height="450" Width="800">
+    <Grid>
+        <lvc:CartesianChart>
+            <lvc:CartesianChart.Series>
+                <!-- ChartValues implement INotifyCollectionChanged, the chart updates automatically -->
+                <lvc:LineSeries Title="Sine output"
+                                Values="{Binding Model.SineValues}"
+                                PointGeometry="{x:Null}" />
+            </lvc:CartesianChart.Series>
+        </lvc:CartesianChart>
+    </Grid>
+</Window>

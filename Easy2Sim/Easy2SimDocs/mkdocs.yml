@@ -1,11 +1,19 @@
 site_name: Easy2Sim Documentation
-site_url: https://example.com/
+site_url: https://www.prescriptiveanalytics.at/Easy2Sim/
+site_description: Documentation for Easy2Sim, an open source C# simulation framework for dynamic (continuous) and discrete-event simulations.
+repo_url: https://github.com/prescriptiveanalytics/Easy2Sim
+# The documentation lives in a subdirectory of the repository, the default
+# edit URI would point to a wrong location. Disabled to avoid broken links.
+edit_uri: ""
+
 nav:
   - Home: README.md
+  - Getting started: getting-started.md
   - Components and connections: Components.md
-  - Sine component: Sine.md
   - Solvers: Solvers.md
-  - Sine code example: UseCase.md
+  - Visualization (WPF): visualization.md
+  - AI coding assistants: ai-assistants.md
+
 theme:
   name: material 
   custom_css:
@@ -16,6 +24,7 @@ theme:
     - content.code.copy  
   icon:
     annotation: material/plus-circle-outline
+
 markdown_extensions:
   - attr_list
   - md_in_html
@@ -27,10 +36,21 @@ markdown_extensions:
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  # Code examples are included from the compilable example projects in
+  # Easy2SimDocs/examples, so the documentation can never drift from the API.
+  # check_paths makes the build fail if an included file is missing.
+  - pymdownx.snippets:
+      base_path:
+        - docs
+        - examples
+      check_paths: true
   - pymdownx.tabbed:
       alternate_style: true
+
 plugins:
+  # Keep search enabled: listing plugins explicitly disables the
+  # built-in search plugin otherwise.
+  - search
   - mkdocs-video:
       is_video: True
       video_muted: True

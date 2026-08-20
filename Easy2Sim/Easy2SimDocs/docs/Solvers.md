@@ -1,61 +1,101 @@
-﻿## Dynamic solver
+﻿# Solvers
 
-In a dynamic calculation, each components "DynamicCalculation" method is 
-executed once per time step.
+The solver controls *when* components are calculated. Easy2Sim provides two main solvers:
 
-=== "Dynamic solver example "
-	
-    ``` { .csharp .annotate .select }
+- **DynamicSolver** (namespace `Easy2Sim.Solvers.Dynamic`): every component's
+  `DynamicCalculation()` is executed once per simulation time step. Use it for
+  dynamic (continuous) simulations.
+- **DiscreteSolver** (namespace `Easy2Sim.Solvers.Discrete`): a component's
+  `DiscreteCalculation()` is only executed when an event for it is processed.
+  Use it for discrete-event simulations.
 
-    SimulationEnvironment environment = new SimulationEnvironment();
-    DynamicSolver solver = new DynamicSolver(environment);// (1)
+Both solvers share the same lifecycle:
 
-    Sine sine = new Sine(environment, solver);
+```csharp
+solver.Initialize();              // calls Initialize() on every component, once
+solver.CalculateTo(100);          // run until simulation time 100
+// or
+solver.CalculateFinish();         // run until the simulation is finished
+```
 
-    solver.CalculateTo(100);
-    ```    
-	{ .annotate }
+## Dynamic solver
 
-	1. Create the dynamic solver
+In a dynamic calculation, each component's `DynamicCalculation()` method is executed
+once per time step, in the order of the components' simulation indexes.
 
+The following complete program is the getting started example — it is compiled and run
+as part of the documentation example project:
 
-## Discrete Solver
-When using a discrete solver, each component is added to time step 0.
+```csharp title="Program.cs"
+--8<-- "Easy2SimExamples/Program.cs"
+```
 
+Output:
 
-=== "Discrete solver example "
-	
-    ``` { .csharp .annotate .select }
+```text
+t=  0  output=  0.0000
+t= 10  output=  0.5878
+t= 20  output=  0.9511
+t= 30  output=  0.9511
+t= 40  output=  0.5878
+t= 50  output=  0.0000
+t= 60  output= -0.5878
+t= 70  output= -0.9511
+t= 80  output= -0.9511
+t= 90  output= -0.5878
+t=100  output= -0.0000
+```
 
-    SimulationEnvironment environment = new SimulationEnvironment();
-    DiscreteSolver discreteSolver = new DiscreteSolver(environment);// (1)
+## Discrete solver
 
-    Sine sine = new Sine(environment, solver);
-    
-    discreteSolver.AddEvent(sine); // (2)
-    discreteSolver.AddEventAtTime(sine, 20); // (3)
-    
-    solver.CalculateTo(100);
-    ```    
-	{ .annotate }
+With the discrete solver, a component is only calculated when an **event** for it exists
+in the event list. Each event points to a simulation time; the solver always processes
+the event with the lowest simulation time next. `CalculateFinish()` stops when no events
+are left or a component finishes the simulation; `CalculateTo(maxTime)` additionally stops
+when the next event lies beyond `maxTime`.
 
-	1. Create the discrete solver
-    2. Add an event for sine at the current time step
-    3. Add an event for sine at time step 20
+The following complete example defines a `Clock` component that schedules a tick every
+10 time units and a `Printer` component that is triggered automatically through a
+connection:
 
+```csharp title="DiscreteExample.cs"
+--8<-- "Easy2SimExamples/DiscreteExample.cs"
+```
 
-Further events have to be added. This are the possible ways to add events:
+Call it from your program entry point:
 
-1. **DiscreteSolver/AddEvent(SimulationBase simulationBase)**
+```csharp
+Easy2SimExamples.DiscreteExample.Run();
+```
 
-	If a component should add a event in the same simulation time the solvers AddEvent can be used.
-   
-2. **DiscreteSolver/AddEventAtTime(SimulationBase simulationBase, long simulationTime)**
+Output:
 
-	Similar to the first variant, however, a time can be specified
-   
+```text
+t=  0  printer received tick 0
+t= 10  printer received tick 10
+t= 20  printer received tick 20
+t= 30  printer received tick 30
+t= 40  printer received tick 40
+t= 50  printer received tick 50
+```
+
+### Ways to add events
+
+1. **`DiscreteSolver.AddEvent(SimulationBase simulationBase)`**
+
+    Adds an event for the component at the current simulation time.
+
+2. **`DiscreteSolver.AddEventAtTime(SimulationBase simulationBase, long simulationTime)`**
+
+    Adds an event for the component at a specific simulation time.
+
 3. **Connection changed**
 
-	If two components are connected and the value changes, an event is automatically added for the connected component.
-	To recognize a change the C# Equals method is used on the objects.
-   
+    If two components are connected and the source value changes, an event for the
+    connected target component is automatically added at the current simulation time.
+    This is how the `Printer` in the example above is triggered — no events are
+    scheduled for it manually.
+
+4. **`DiscreteSolver.AddEventForAllComponents()` / `AddEventForAllComponentsAtTime(long time)`**
+
+    Adds an event for every component in the environment.

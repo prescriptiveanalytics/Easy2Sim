@@ -416,3 +416,11 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Build output directories
+[Bb]in/
+[Oo]bj/
+
+# MkDocs build output - built by the GitHub Pages workflow
+Easy2Sim/Easy2SimDocs/site/
+Easy2Sim/Easy2SimDocs/public/

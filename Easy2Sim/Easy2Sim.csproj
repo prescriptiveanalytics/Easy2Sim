@@ -44,6 +44,12 @@
 		</None>
 	  </ItemGroup>
 
+	<ItemGroup>
+		<!-- Documentation examples (Easy2SimDocs/examples) are standalone projects
+		     and must not be compiled as part of the library -->
+		<Compile Remove="Easy2SimDocs\**\*.cs" />
+	</ItemGroup>
+
 
 	<PropertyGroup>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
