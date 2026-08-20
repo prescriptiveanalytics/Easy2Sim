@@ -10,25 +10,24 @@ public class FeedbackSimulationValue<T, T1> : IFrameworkBase, ISimulationValue
     public Guid Guid { get; }
 
     [JsonIgnore]
-    public Guid EnvironmentGuid { get; set; }
+    public SimulationEnvironment? SimulationEnvironment{ get; set; }
 
     [JsonIgnore]
     public SimulationBase? Parent
     {
         get
         {
-            SimulationEnvironment environment = ComponentRegister.GetEnvironment(EnvironmentGuid);
-            SimulationBase simBase = environment.GetComponentByName(ParentName);
+            SimulationBase? simBase = SimulationEnvironment?.GetComponentByName(ParentName);
             if (simBase == null)
             {
-                simBase.LogError($"Simulation value ({ParentName}-{PropertyName} parent not found");
+                SimulationEnvironment?.LogEnvironmentError($"Simulation value ({ParentName}-{PropertyName} parent not found");
             }
             return simBase;
         }
     }
 
     [JsonProperty]
-    public string PropertyName { get; }
+    public string PropertyName { get; set; }
     [JsonProperty]
     public string ParentName { get; set; }
 
@@ -51,6 +50,7 @@ public class FeedbackSimulationValue<T, T1> : IFrameworkBase, ISimulationValue
         ParentName = string.Empty;
         Attributes = new List<SimulationValueAttributes>();
         FeedbackValueChanged = false;
+        SimulationEnvironment = null;
     }
 
     public FeedbackSimulationValue(T value, T1 feedbackValue, string propertyName, SimulationBase simBase, List<SimulationValueAttributes> attributes)
@@ -61,7 +61,7 @@ public class FeedbackSimulationValue<T, T1> : IFrameworkBase, ISimulationValue
         _value = value;
         _feedbackValue = feedbackValue;
         Guid = Guid.NewGuid();
-        EnvironmentGuid = simBase.SimulationEnvironmentGuid;
+        SimulationEnvironment = simBase.SimulationEnvironment;
     }
     public FeedbackSimulationValue(T value, T1 feedbackValue, string propertyName, SimulationBase simBase, SimulationValueAttributes attribute)
     {
@@ -71,7 +71,7 @@ public class FeedbackSimulationValue<T, T1> : IFrameworkBase, ISimulationValue
         _value = value;
         _feedbackValue = feedbackValue;
         Guid = Guid.NewGuid();
-        EnvironmentGuid = simBase.SimulationEnvironmentGuid;
+        SimulationEnvironment = simBase.SimulationEnvironment;
     }
 
     // Event to be raised when the attribute changes
@@ -80,7 +80,7 @@ public class FeedbackSimulationValue<T, T1> : IFrameworkBase, ISimulationValue
         return _value;
     }
 
-    public T Value
+    public T? Value
     {
         get => _value;
         set
@@ -91,7 +91,7 @@ public class FeedbackSimulationValue<T, T1> : IFrameworkBase, ISimulationValue
             OnPropertyChanged(value, oldValue, SimulationEventType.DiscreteCalculation);
         }
     }
-    public T1 FeedbackValue
+    public T1? FeedbackValue
     {
         get => _feedbackValue;
         set
@@ -140,10 +140,18 @@ public class FeedbackSimulationValue<T, T1> : IFrameworkBase, ISimulationValue
 
     protected void OnPropertyChanged(T? newValue, T? oldValue, SimulationEventType type)
     {
+        if (Parent?.Solver == null)
+        {
+            return;
+        }
         PropertyChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(newValue, oldValue, Parent.Solver, type));
     }
     protected void OnFeedbackValueChanged(T1? newValue, T1? oldValue, SimulationEventType type)
     {
+        if (Parent?.Solver == null)
+        {
+            return;
+        }
         FeedbackPropertyChanged?.Invoke(this, new PropertyValueChangedEventArgs<T1>(newValue, oldValue, Parent.Solver, type));
     }
 

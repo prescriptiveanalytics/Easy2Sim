@@ -1,64 +1,68 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Easy2Sim.Interfaces;
+﻿using Easy2Sim.Interfaces;
 using Newtonsoft.Json;
 
-namespace Easy2Sim.Solvers
+namespace Easy2Sim.Solvers;
+
+public class DateTimeConfigurations : IFrameworkBase, ICloneable<DateTimeConfigurations>
 {
-    public class DateTimeConfigurations : IFrameworkBase
+    /// <summary>
+    /// Unique Guid that can be used to uniquely identify class instances
+    /// </summary>
+    [JsonIgnore]
+    public Guid Guid { get; set; }
+
+    /// <summary>
+    /// Start date of the simulation
+    /// </summary>
+    [JsonProperty]
+    public DateTime StartDate { get; set; }
+
+    /// <summary>
+    /// End date of the simulation
+    /// </summary>
+    [JsonProperty]
+    public DateTime EndDate { get; set; }
+
+    [JsonIgnore]
+    public long NecessarySimulationSteps
     {
-        /// <summary>
-        /// Unique Guid that can be used to uniquely identify class instances
-        /// </summary>
-        [JsonIgnore]
-        public Guid Guid { get; set; }
-
-        /// <summary>
-        /// Start date of the simulation
-        /// </summary>
-        [JsonProperty]
-        public DateTime StartDate { get; set; }
-
-        /// <summary>
-        /// End date of the simulation
-        /// </summary>
-        [JsonProperty]
-        public DateTime EndDate { get; set; }
-
-        [JsonIgnore]
-        public long NecessarySimulationSteps
+        get
         {
-            get
-            {
-                long milliseconds = (long)(EndDate - StartDate).TotalMilliseconds;
-                long simulationSteps = milliseconds / TimeFactor;
-                return simulationSteps;
-            }
+            long milliseconds = (long)(EndDate - StartDate).TotalMilliseconds;
+            long simulationSteps = milliseconds / TimeFactor;
+            return simulationSteps;
         }
+    }
 
-        /// <summary>
-        /// Date increase in milliseconds, per simulation step
-        /// </summary>
-        [JsonProperty]
-        public int TimeFactor { get; set; }
-
-
-        internal DateTime GetCurrentSimulationDate(long simulationTime)
-        {
-            DateTime result = StartDate.AddMilliseconds(simulationTime * TimeFactor);
+    /// <summary>
+    /// Date increase in milliseconds, per simulation step
+    /// </summary>
+    [JsonProperty]
+    public int TimeFactor { get; set; }
 
 
-            return result;
-        }
+    internal DateTime GetCurrentSimulationDate(long simulationTime)
+    {
+        DateTime result = StartDate.AddMilliseconds(simulationTime * TimeFactor);
 
-        public DateTimeConfigurations()
-        {
-            Guid = Guid.NewGuid();
-            TimeFactor = 1000 * 60; //
-            StartDate = new DateTime(2024, 1, 1);
-        }
+
+        return result;
+    }
+
+    public DateTimeConfigurations()
+    {
+        Guid = Guid.NewGuid();
+        TimeFactor = 1000 * 60; //
+        StartDate = new DateTime(2024, 1, 1);
+    }
+
+    public DateTimeConfigurations Clone()
+    {
+        DateTimeConfigurations result = new DateTimeConfigurations();
+        result.Guid = Guid.NewGuid();
+        result.StartDate = StartDate;
+        result.EndDate = EndDate;
+        result.TimeFactor = TimeFactor;
+        return result;
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Easy2Sim.Environment;
+using Easy2Sim.Interfaces;
 using Newtonsoft.Json;
 
 namespace Easy2Sim.Solvers.Discrete;
@@ -7,38 +8,32 @@ namespace Easy2Sim.Solvers.Discrete;
 /// Event based solver.
 /// Each component can add events at a specific time for a specific component.
 /// </summary>
-public class DiscreteSolver : SolverBase, IDisposable
+public class DiscreteSolver : SolverBase, ICloneable<DiscreteSolver>
 {
-    /// <summary>
-    /// Represents all additional information that is necessary for the discrete solver
-    /// </summary>
-    [JsonProperty("discreteSolver")]
-    private DiscreteSolverModel _discreteSolverModel;
 
-    [JsonIgnore]
-    public DiscreteSolverModel DiscreteSolverModel => _discreteSolverModel;
+    [JsonProperty]
+    public DiscreteSolverModel DiscreteSolverModel { get; set; }
 
     /// <summary>
     /// Better access to the simulation time during the simulation
     /// The real value is stored in the BaseModelMode
     /// </summary>
     [JsonIgnore]
-    public long SimulationTime => BaseModel.SimulationTime;
+    public new long SimulationTime => BaseModel.SimulationTime;
 
 
     /// <summary>
     /// Represents all data that is necessary to run one event based simulation.
     /// </summary>
-    [JsonProperty("baseModel")]
+    [JsonProperty]
     public sealed override BaseSolverModel BaseModel { get; set; }
 
     [JsonConstructor]
     public DiscreteSolver(BaseSolverModel baseModel, DiscreteSolverModel discreteSolver)
     {
         this.BaseModel = baseModel;
-        this._discreteSolverModel = discreteSolver;
+        DiscreteSolverModel = discreteSolver;
         Guid = Guid.NewGuid();
-        ComponentRegister.AddSolver(Guid, this);
     }
 
 
@@ -46,20 +41,15 @@ public class DiscreteSolver : SolverBase, IDisposable
     /// Default constructor that should be used. 
     /// A environment reference is necessary for the solver, as the environment holds the simulation components.
     /// </summary>
-    public DiscreteSolver(SimulationEnvironment e) : this(e.Guid) { }
-
-
-    /// <summary>
-    /// Default constructor that should be used. 
-    /// A environment reference is necessary for the solver, as the environment holds the simulation components.
-    /// </summary>
-    public DiscreteSolver(Guid e)
+    public DiscreteSolver(SimulationEnvironment e)
     {
         Guid = Guid.NewGuid();
-        _discreteSolverModel = new DiscreteSolverModel();
+        DiscreteSolverModel = new DiscreteSolverModel();
         BaseModel = new BaseSolverModel(e);
-        ComponentRegister.AddSolver(Guid, this);
+        SimulationEnvironment = e;
     }
+
+
 
     /// <summary>
     /// Calculate until no more events are in the event list 
@@ -68,29 +58,35 @@ public class DiscreteSolver : SolverBase, IDisposable
     public override void CalculateFinish()
     {
         if (SimulationEnvironment == null)
-            return;
+            throw new Exception("Simulation environment is null, can not CalculateFinish");
         SimulationEnvironment.LogEnvironmentInfo("Discrete solver: calculate finish");
         try
         {
             // Stopping condition:
             // A component sets the simulation to finished or
             // no events left
-            while (!BaseModel.IsFinished && _discreteSolverModel.AnyEvent)
+            while (!BaseModel.IsFinished && DiscreteSolverModel.AnyEvent)
             {
 
                 long nextTimeStamp = -1;
-                if (_discreteSolverModel.EventList.Any())
-                    nextTimeStamp = _discreteSolverModel.EventList.Keys.Min();
+                if (DiscreteSolverModel.EventList.Any())
+                    nextTimeStamp = DiscreteSolverModel.EventList.Keys.Min();
 
                 if (nextTimeStamp > BaseModel.SimulationTime || nextTimeStamp == -1)
                 {
-                    SimulationEnvironment.LogEnvironmentInfo("Discrete solver, run after time events");
+                    SimulationEnvironment?.LogEnvironmentInfo("Discrete solver, run after time events");
                     while (DiscreteSolverModel.AnyAfterTimeEvent(BaseModel.SimulationTime))
                     {
                         DiscreteEvent? nextAfterTimeEvent = GetNextAfterTimeEvent(BaseModel.SimulationTime);
                         if (nextAfterTimeEvent.HasValue)
                         {
-                            SimulationBase? compAfterTime = SimulationEnvironment.GetComponentByName(nextAfterTimeEvent.Value.ComponentName);
+                            SimulationBase? compAfterTime = SimulationEnvironment?.GetComponentByName(nextAfterTimeEvent.Value.ComponentName);
+                            if (compAfterTime == null)
+                            {
+                                SimulationEnvironment?.LogEnvironmentError($"After time event for {nextAfterTimeEvent.Value.ComponentName}, component not found");
+                                continue;
+                            }
+
                             compAfterTime.PostCalculation();
 
                             compAfterTime.LogVisualizationParameters(BaseModel.SimulationTime);
@@ -98,7 +94,7 @@ public class DiscreteSolver : SolverBase, IDisposable
                         }
                     }
                 }
-                if (_discreteSolverModel.EventList.Count == 0)
+                if (DiscreteSolverModel.EventList.Count == 0)
                     continue;
 
 
@@ -108,15 +104,15 @@ public class DiscreteSolver : SolverBase, IDisposable
                     break;
                 if (discreteEvent.Value.TimeStamp > BaseModel.SimulationTime)
                 {
-                    SimulationEnvironment.LogEnvironmentInfo("Discrete solver, time: " + discreteEvent.Value.TimeStamp);
+                    SimulationEnvironment?.LogEnvironmentInfo("Discrete solver, time: " + discreteEvent.Value.TimeStamp);
                     BaseModel.SimulationTime = discreteEvent.Value.TimeStamp;
                 }
 
-                SimulationBase? comp = SimulationEnvironment.GetComponentByName(discreteEvent.Value.ComponentName);
+                SimulationBase? comp = SimulationEnvironment?.GetComponentByName(discreteEvent.Value.ComponentName);
 
                 if (comp == null)
                 {
-                    comp.LogError("CalculateFinish: does not exist in the environment");
+                    SimulationEnvironment?.LogEnvironmentError($"Can not find component {discreteEvent.Value.ComponentName} by name");
                     continue;
                 }
                 comp?.DiscreteCalculation();
@@ -127,17 +123,22 @@ public class DiscreteSolver : SolverBase, IDisposable
                     Thread.Sleep(BaseModel.Delay);
             }
 
-            if (!BaseModel.IsFinished && !_discreteSolverModel.AnyEvent)
+            if (!BaseModel.IsFinished && !DiscreteSolverModel.AnyEvent)
                 BaseModel.IsFinished = true;
-
-            foreach (SimulationBase simulationBase in SimulationEnvironment.Model.SimulationObjects.Values)
-            {
-                simulationBase.End();
-            }
+            if (SimulationEnvironment?.Model.SimulationObjects.Values != null)
+                foreach (SimulationBase? simulationBase in SimulationEnvironment.Model.SimulationObjects.Values)
+                {
+                    simulationBase.End();
+                }
         }
         catch (Exception ex)
         {
-            SimulationEnvironment.Model.Easy2SimLogging.FrameworkDebuggingLogger.Error(ex.ToString());
+            if (SimulationEnvironment?.Model.Easy2SimLogging?.FrameworkDebuggingLogger != null)
+                SimulationEnvironment.Model.Easy2SimLogging.FrameworkDebuggingLogger.Error(ex.ToString());
+            else
+            {
+                throw new Exception(ex.ToString());
+            }
         }
     }
 
@@ -148,7 +149,7 @@ public class DiscreteSolver : SolverBase, IDisposable
     public override void CalculateTo(long maxTime)
     {
         if (SimulationEnvironment == null)
-            return;
+            throw new Exception("Simulation environment is null, can not CalculateTo");
         SimulationEnvironment.LogEnvironmentInfo("Discrete solver: calculate to " + maxTime);
 
         try
@@ -157,21 +158,27 @@ public class DiscreteSolver : SolverBase, IDisposable
             // A component sets the simulation to finished or
             // no events left or
             // the simulation time is larger than the given max time
-            while (!BaseModel.IsFinished && _discreteSolverModel.AnyEvent)
+            while (!BaseModel.IsFinished && DiscreteSolverModel.AnyEvent)
             {
                 long nextTimeStamp = -1;
-                if (_discreteSolverModel.EventList.Any())
-                    nextTimeStamp = _discreteSolverModel.EventList.Keys.Min();
+                if (DiscreteSolverModel.EventList.Any())
+                    nextTimeStamp = DiscreteSolverModel.EventList.Keys.Min();
 
                 if (nextTimeStamp > BaseModel.SimulationTime || nextTimeStamp == -1)
                 {
-                    SimulationEnvironment.LogEnvironmentInfo("Discrete solver, run after time events");
+                    SimulationEnvironment?.LogEnvironmentInfo("Discrete solver, run after time events");
                     while (DiscreteSolverModel.AnyAfterTimeEvent(BaseModel.SimulationTime))
                     {
                         DiscreteEvent? nextAfterTimeEvent = GetNextAfterTimeEvent(BaseModel.SimulationTime);
                         if (nextAfterTimeEvent.HasValue)
                         {
-                            SimulationBase? compAfterTime = SimulationEnvironment.GetComponentByName(nextAfterTimeEvent.Value.ComponentName);
+                            SimulationBase? compAfterTime = SimulationEnvironment?.GetComponentByName(nextAfterTimeEvent.Value.ComponentName);
+                            if (compAfterTime == null)
+                            {
+                                SimulationEnvironment?.LogEnvironmentError($"After time event for {nextAfterTimeEvent.Value.ComponentName}, component not found");
+                                continue;
+                            }
+
                             compAfterTime.PostCalculation();
 
                             compAfterTime.LogVisualizationParameters(BaseModel.SimulationTime);
@@ -180,7 +187,7 @@ public class DiscreteSolver : SolverBase, IDisposable
                     }
                 }
 
-                if (_discreteSolverModel.EventList.Count == 0)
+                if (DiscreteSolverModel.EventList.Count == 0)
                     continue;
 
                 DiscreteEvent? discreteEvent = GetNextEvent();
@@ -196,14 +203,14 @@ public class DiscreteSolver : SolverBase, IDisposable
                 if (discreteEvent.Value.TimeStamp > BaseModel.SimulationTime)
                 {
 
-                    SimulationEnvironment.LogEnvironmentInfo("Discrete solver, time: " + discreteEvent.Value.TimeStamp);
+                    SimulationEnvironment?.LogEnvironmentInfo("Discrete solver, time: " + discreteEvent.Value.TimeStamp);
                     BaseModel.SimulationTime = discreteEvent.Value.TimeStamp;
                 }
 
-                SimulationBase? comp = SimulationEnvironment.GetComponentByName(discreteEvent.Value.ComponentName);
+                SimulationBase? comp = SimulationEnvironment?.GetComponentByName(discreteEvent.Value.ComponentName);
                 if (comp == null)
                 {
-                    SimulationEnvironment.LogEnvironmentWarning("CalculateTo: " + discreteEvent.Value.ComponentName + "does not exist in the environment");
+                    SimulationEnvironment?.LogEnvironmentWarning("CalculateTo: " + discreteEvent.Value.ComponentName + "does not exist in the environment");
                     continue;
                 }
                 comp.DiscreteCalculation();
@@ -214,10 +221,13 @@ public class DiscreteSolver : SolverBase, IDisposable
                 if (BaseModel.Delay > 0)
                     Thread.Sleep(BaseModel.Delay);
             }
+
         }
         catch (Exception ex)
         {
-            SimulationEnvironment.LogEnvironmentFatal(ex.ToString());
+            SimulationEnvironment?.LogEnvironmentFatal(ex.ToString());
+            if (SimulationEnvironment == null)
+                throw new Exception(ex.ToString());
         }
     }
 
@@ -227,6 +237,8 @@ public class DiscreteSolver : SolverBase, IDisposable
     /// </summary>
     public void AddEventForAllComponents()
     {
+        if (SimulationEnvironment == null)
+            throw new Exception("Simulation environment is null, can not add events for all components");
         AddEvents(SimulationEnvironment.Model.SimulationObjects.Values);
     }
 
@@ -245,6 +257,10 @@ public class DiscreteSolver : SolverBase, IDisposable
     /// </summary>
     public void AddEventForAllComponentsAtTime(long time)
     {
+        if (SimulationEnvironment == null)
+        {
+            throw new Exception("Can not add events, Simulation environment is null");
+        }
         AddEventsAtTime(SimulationEnvironment.Model.SimulationObjects.Values, time);
     }
 
@@ -271,6 +287,7 @@ public class DiscreteSolver : SolverBase, IDisposable
                 simBase.Initialize();
                 simBase.LogVisualizationInitializeParameters(this.BaseModel.SimulationTime);
             }
+            
         }
         catch (Exception ex)
         {
@@ -285,7 +302,7 @@ public class DiscreteSolver : SolverBase, IDisposable
     {
         try
         {
-            if(DiscreteSolverModel.AfterTimeEventList.Count == 0)
+            if (DiscreteSolverModel.AfterTimeEventList.Count == 0)
                 return null;
             if (DiscreteSolverModel.AfterTimeEventList.ContainsKey(timeStamp) && DiscreteSolverModel.AfterTimeEventList[timeStamp].Count == 0)
                 return null;
@@ -314,7 +331,7 @@ public class DiscreteSolver : SolverBase, IDisposable
     {
         try
         {
-            if(DiscreteSolverModel.EventList.Count == 0)
+            if (DiscreteSolverModel.EventList.Count == 0)
                 return null;
             //next event
             long minKey = DiscreteSolverModel.EventList.Keys.Min();
@@ -325,7 +342,7 @@ public class DiscreteSolver : SolverBase, IDisposable
                 DiscreteSolverModel.EventList.Remove(minKey);
 
             DiscreteSolverModel.HistoricEvents.Add(discreteEvent);
-            DiscreteSolverModel.HistoricEvents.RemoveWhere(x => x.TimeStamp < minKey); 
+            DiscreteSolverModel.HistoricEvents.RemoveWhere(x => x.TimeStamp < minKey);
 
             return discreteEvent;
         }
@@ -378,20 +395,20 @@ public class DiscreteSolver : SolverBase, IDisposable
     }
 
 
-    /// <summary>
-    /// Make sure the solver is removed from the component register once it is disposed
-    /// </summary>
-    public void Dispose()
-    {
-        ComponentRegister.RemoveSolver(Guid);
-    }
     public void AddAfterTimeEvent(SimulationBase? simulationBase)
     {
         if (simulationBase == null || simulationBase.Easy2SimName == "")
         {
-            SimulationEnvironment.LogEnvironmentFatal("After time event is null or has no component");
+            SimulationEnvironment?.LogEnvironmentFatal("After time event is null or has no component");
             throw new Exception("After time event is null or has no component");
         }
         DiscreteSolverModel.AddAfterTimeEvent(BaseModel.SimulationTime, simulationBase);
+    }
+
+    public DiscreteSolver Clone()
+    {
+        DiscreteSolver result = new DiscreteSolver(BaseModel.Clone(), DiscreteSolverModel.Clone());
+        result.SimulationEnvironment = null;
+        return result;
     }
 }

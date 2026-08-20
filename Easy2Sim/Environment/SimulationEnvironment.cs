@@ -12,8 +12,22 @@ using DotNetGraph.Compilation;
 
 namespace Easy2Sim.Environment;
 
-public class SimulationEnvironment : IFrameworkBase, IDisposable
+public class SimulationEnvironment : IFrameworkBase, ICloneable<SimulationEnvironment>
 {
+    public static JsonSerializerSettings JsonSerializerSettings { get; } = new JsonSerializerSettings
+    {
+        TypeNameHandling = TypeNameHandling.All,
+        PreserveReferencesHandling = PreserveReferencesHandling.Objects
+    };
+
+    public static T? Deserialize<T>(string json)
+    {
+        return JsonConvert.DeserializeObject<T>(json, JsonSerializerSettings);
+    }
+
+
+
+
     /// <summary>
     /// Represents all data that is necessary to run one simulation
     /// </summary>
@@ -22,50 +36,22 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
 
 
     [JsonIgnore]
-    private Guid _guid;
-
-    /// <summary>
-    /// Unique Guid that can be used to uniquely identify class instances
-    /// </summary>
-    [JsonIgnore]
-    public Guid Guid
-    {
-        get => _guid;
-        set
-        {
-            _guid = value;
-        }
-    }
+    public Guid Guid { get; set; }
 
     [JsonConstructor]
     public SimulationEnvironment(EnvironmentModel model)
     {
+        Guid = Guid.NewGuid();
         Model = model;
-        _guid = Guid.NewGuid();
-        ComponentRegister.AddEnvironment(Guid, this);
 
         //Set simulation base to correct environment guid
         foreach (SimulationBase simBase in Model.SimulationObjects.Values)
-            simBase.SimulationEnvironmentGuid = Guid;
+            simBase.SimulationEnvironment = this;
 
         //Set connection environment guid
         foreach (IConnection connection in Model.Connections)
-            connection.EnvironmentGuid = Guid;
+            connection.SimulationEnvironment = this;
 
-        //Set simulation value environment guid
-        foreach (SimulationBase simulationBase in Model.SimulationObjects.Values)
-        {
-
-            //Set property guids
-            foreach (PropertyInfo info in simulationBase.GetType().GetProperties())
-                if (IsSimulationValue(info.PropertyType))
-                    SetGuidForSimulationValue(info.GetValue(simulationBase), Guid);
-
-            //Set field guids
-            foreach (FieldInfo fInfo in simulationBase.GetType().GetFields())
-                if (IsSimulationValue(fInfo.FieldType))
-                    SetGuidForSimulationValue(fInfo.GetValue(simulationBase), Guid);
-        }
 
         RecheckConnections();
     }
@@ -76,16 +62,11 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
     }
 
 
-    private static void SetGuidForSimulationValue(dynamic simValue, Guid guid)
-    {
-        simValue.EnvironmentGuid = guid;
-    }
 
     public SimulationEnvironment()
     {
         Guid = Guid.NewGuid();
         Model = new EnvironmentModel();
-        ComponentRegister.AddEnvironment(Guid, this);
     }
 
 
@@ -96,10 +77,11 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
     public void AddComponent(SimulationBase simulationBase)
     {
         Model.SimulationObjects.Add(simulationBase.Index, simulationBase);
-        if (simulationBase.SimulationEnvironmentGuid == Guid.Empty)
-            this.LogEnvironmentWarning($"Component {simulationBase.Easy2SimName} with index {simulationBase.Index} has no environment set");
-
-        if (simulationBase.SolverGuid == Guid.Empty)
+        if (simulationBase.SimulationEnvironment == null)
+        {
+            simulationBase.SimulationEnvironment = this;
+        }
+        if (simulationBase.Solver == null)
             this.LogEnvironmentWarning($"Component {simulationBase.Easy2SimName} with index {simulationBase.Index} has no solver set");
 
         this.LogEnvironmentInfo($"Added component to the environment: {simulationBase.Easy2SimName} with index {simulationBase.Index}");
@@ -118,7 +100,7 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
     /// </code>
     public void AddConnection<T>(SimulationValue<T> source, SimulationValue<T> target, bool isComponentConnection = false)
     {
-        Connection<T> connection = new Connection<T>(source, target, this.Guid, isComponentConnection);
+        Connection<T> connection = new Connection<T>(source, target, this, isComponentConnection);
 
         Model.Connections.Add(connection);
         this.LogEnvironmentInfo($"Added connection:{connection.ToString()}");
@@ -127,7 +109,7 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
     public void AddConnection<T>(SimulationValue<T> source, string targetParent, string targetProperty,
         bool isComponentConnection = false)
     {
-        Connection<T> connection = new Connection<T>(source.ParentName, source.PropertyName, targetParent, targetProperty, this.Guid, isComponentConnection);
+        Connection<T> connection = new Connection<T>(source.ParentName, source.PropertyName, targetParent, targetProperty, this, isComponentConnection);
 
         Model.Connections.Add(connection);
         this.LogEnvironmentInfo($"Added connection: {connection.ToString()}");
@@ -138,7 +120,7 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
     public void AddFeedbackConnection<T, T1>(FeedbackSimulationValue<T, T1> source, FeedbackSimulationValue<T, T1> target,
                                              bool isComponentConnection = false)
     {
-        FeedbackConnection<T, T1> connection = new FeedbackConnection<T, T1>(source, target, this.Guid, isComponentConnection);
+        FeedbackConnection<T, T1> connection = new FeedbackConnection<T, T1>(source, target, this, isComponentConnection);
 
         Model.Connections.Add(connection);
         this.LogEnvironmentInfo($"Added feedback connection: {connection.ToString()}");
@@ -150,18 +132,18 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
         try
         {
             if (logger != null)
-                logger.Error($"Start creating component connection");
+                logger.Information($"Start creating component connection");
 
             //Get In"Variable" properties
             List<dynamic> sim1In = simulationBase1.GetSimulationValues(SimulationValueAttributes.Input);
             List<dynamic> sim2In = simulationBase2.GetSimulationValues(SimulationValueAttributes.Input);
-           
+
             //Get Out"Variable" properties
             List<dynamic> sim1Out = simulationBase1.GetSimulationValues(SimulationValueAttributes.Output);
             List<dynamic> sim2Out = simulationBase2.GetSimulationValues(SimulationValueAttributes.Output);
 
             if (logger != null)
-                logger.Error($"{simulationBase1.Easy2SimName}: {sim1In.Count} in, {sim1Out.Count} out. {simulationBase2.Easy2SimName}: {sim2In.Count} in, {sim2Out.Count} out");
+                logger.Information($"{simulationBase1.Easy2SimName}: {sim1In.Count} in, {sim1Out.Count} out. {simulationBase2.Easy2SimName}: {sim2In.Count} in, {sim2Out.Count} out");
             else
                 this.LogEnvironmentInfo($"{simulationBase1.Easy2SimName}: {sim1In.Count} in, {sim1Out.Count} out. {simulationBase2.Easy2SimName}: {sim2In.Count} in, {sim2Out.Count} out");
 
@@ -174,7 +156,7 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
                         sim1Output.PropertyName.Replace("Out", "") == sim2Input.PropertyName.Replace("In", ""))
                     {
                         if (logger != null)
-                            logger.Error($"New connection: {sim1Output.ToString()} - {sim2Input.ToString()}");
+                            logger.Information($"New connection: {sim1Output.ToString()} - {sim2Input.ToString()}");
 
                         string targetParent = sim2Input.ParentName;
                         string targetProperty = sim2Input.PropertyName;
@@ -193,7 +175,7 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
                         sim2Output.PropertyName.Replace("Out", "") == sim1Input.PropertyName.Replace("In", ""))
                     {
                         if (logger != null)
-                            logger.Error($"New connection: {sim2Output.ToString()} - {sim1Input.ToString()}");
+                            logger.Information($"New connection: {sim2Output.ToString()} - {sim1Input.ToString()}");
 
                         string targetParent = sim1Input.ParentName;
                         string targetProperty = sim1Input.PropertyName;
@@ -220,7 +202,7 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
                         sim1Output.PropertyName.Replace("Out", "") == sim2Input.PropertyName.Replace("In", ""))
                     {
                         if (logger != null)
-                            logger.Error($"New feedback connection: {sim1Output.ToString()} - {sim2Input.ToString()}");
+                            logger.Information($"New feedback connection: {sim1Output.ToString()} - {sim2Input.ToString()}");
 
                         AddFeedbackConnection(sim1Output, sim2Input, true);
                     }
@@ -234,7 +216,7 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
                         sim2Output.PropertyName.Replace("Out", "") == sim1Input.PropertyName.Replace("In", ""))
                     {
                         if (logger != null)
-                            logger.Error($"New feedback connection: {sim2Output.ToString()} - {sim1Input.ToString()}");
+                            logger.Information($"New feedback connection: {sim2Output.ToString()} - {sim1Input.ToString()}");
 
                         AddFeedbackConnection(sim2Output, sim1Input, true);
                     }
@@ -243,7 +225,7 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
             if (logger != null)
                 logger.Information($"Added feedback connection to the model: {simulationBase1.Easy2SimName} - {simulationBase2.Easy2SimName}");
 
-            this.Model.ComponentConnections.Add((simulationBase1.Easy2SimName, simulationBase2.Easy2SimName));
+            this.Model.ComponentConnections.Add(new ComponentConnection(simulationBase1.Easy2SimName, simulationBase2.Easy2SimName));
 
 
         }
@@ -251,18 +233,10 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
         {
             this.LogEnvironmentError($"Can not establish component connection from {simulationBase1.Easy2SimName} to {simulationBase2.Easy2SimName}");
             this.LogEnvironmentError(ex.ToString());
+
+            logger?.Error($"Can not establish component connection from {simulationBase1.Easy2SimName} to {simulationBase2.Easy2SimName}");
+            logger?.Error(ex.ToString());
         }
-
-
-    }
-
-
-    /// <summary>
-    /// Remove this component from the register once it is disposed
-    /// </summary>
-    public void Dispose()
-    {
-        ComponentRegister.RemoveEnvironment(Guid);
     }
 
 
@@ -275,7 +249,7 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
     public void SetSolverForComponents(SolverBase solver)
     {
         foreach (SimulationBase item in Model.SimulationObjects.Values)
-            item.SolverGuid = solver.Guid;
+            item.Solver = solver;
 
     }
 
@@ -330,18 +304,7 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
 
         try
         {
-            string solverJson = "";
-
-            JsonSerializerSettings settings = new JsonSerializerSettings
-            {
-                TypeNameHandling = TypeNameHandling.All
-            };
-            if (solver is DiscreteSolver discSolver)
-                solverJson = JsonConvert.SerializeObject(discSolver, settings);
-            else if (solver is DynamicSolver dynamicSolver)
-                solverJson = JsonConvert.SerializeObject(dynamicSolver, settings);
-            else
-                solverJson = JsonConvert.SerializeObject(solver, settings);
+            string solverJson = (solver as IFrameworkBase).SerializeToJson();
 
 
             // ============ NOTE ==============
@@ -349,31 +312,32 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
             // This uses a new Guid
 
             if (solver is DiscreteSolver)
-                solverResult = JsonConvert.DeserializeObject<DiscreteSolver>(solverJson, settings);
+                solverResult = SimulationEnvironment.Deserialize<DiscreteSolver>(solverJson);
             if (solver is DynamicSolver)
-                solverResult = JsonConvert.DeserializeObject<DynamicSolver>(solverJson, settings);
+                solverResult = SimulationEnvironment.Deserialize<DynamicSolver>(solverJson);
             if (solverResult == null)
                 throw new Exception("Solver could not be deserialized");
 
             string environmentJson = (environment as IFrameworkBase).SerializeToJson();
-            resultEnvironment = JsonConvert.DeserializeObject<SimulationEnvironment>(environmentJson, settings);
+            resultEnvironment = SimulationEnvironment.Deserialize<SimulationEnvironment>(environmentJson); ;
             if (resultEnvironment == null)
                 throw new Exception("Environment could not be deserialized");
 
-            solverResult.BaseModel.EnvironmentGuid = resultEnvironment.Guid;
+            solverResult.BaseModel.SimulationEnvironment = resultEnvironment;
 
-            foreach (dynamic con in resultEnvironment.Model.Connections)
-                con.EnvironmentGuid = resultEnvironment.Guid;
+            SetSimulationEnvironmentInConnections(resultEnvironment);
+            SetSimulationEnvironmentInSimulationObjets(resultEnvironment);
+
 
             foreach (SimulationBase simBase in resultEnvironment.Model.SimulationObjects.Values)
             {
-                simBase.SimulationEnvironmentGuid = resultEnvironment.Guid;
-                simBase.SolverGuid = solverResult.Guid;
+                simBase.Solver = solverResult;
             }
         }
         catch (Exception ex)
         {
-            environment.Model.Easy2SimLogging.FrameworkDebuggingLogger.Error(ex.ToString());
+            if(environment.Model.Easy2SimLogging?.FrameworkDebuggingLogger != null)
+                environment.Model.Easy2SimLogging.FrameworkDebuggingLogger.Error(ex.ToString());
         }
 
         if (solverResult != null && resultEnvironment != null)
@@ -384,31 +348,45 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
         throw new Exception("Either solver or environment not initialized");
     }
 
+    private static void SetSimulationEnvironmentInConnections(SimulationEnvironment resultEnvironment)
+    {
+        foreach (dynamic con in resultEnvironment.Model.Connections)
+            con.SimulationEnvironment = resultEnvironment;
+    }
+
+    private static void SetSimulationEnvironmentInSimulationObjets(SimulationEnvironment resultEnvironment)
+    {
+        foreach (SimulationBase simBase in resultEnvironment.Model.SimulationObjects.Values)
+            simBase.SimulationEnvironment = resultEnvironment;
+    }
+
     /// <summary>
     /// Set the parameter of a simulation base in the environment
     /// </summary>
-    public void SetParameter(SimulationBase simulationBase, string parameterName, object parameterValue, Logger? logger  = null)
+    public void SetParameter(SimulationBase simulationBase, string parameterName, object parameterValue, Logger? logger = null)
     {
         Type type = simulationBase.GetType();
         PropertyInfo? property = type.GetProperty(parameterName, BindingFlags.Public | BindingFlags.Instance);
         if (property != null)
         {
-            dynamic simulationValue = property.GetValue(simulationBase);
-            if (simulationValue.Attributes.Contains(SimulationValueAttributes.Parameter))
-            {
-                simulationValue.SetParameter(parameterValue);
-                logger?.Information($"Set parameter {simulationBase}-{parameterName} to {parameterValue}");
-            }
+            dynamic? simulationValue = property.GetValue(simulationBase);
+            if (simulationValue != null)
+                if (simulationValue.Attributes.Contains(SimulationValueAttributes.Parameter))
+                {
+                    simulationValue.SetParameter(parameterValue);
+                    logger?.Information($"Set parameter {simulationBase}-{parameterName} to {parameterValue}");
+                }
         }
         FieldInfo? field = type.GetField(parameterName, BindingFlags.Public | BindingFlags.Instance);
         if (field != null)
         {
-            dynamic simulationValue = field.GetValue(simulationBase);
-            if (simulationValue.Attributes.Contains(SimulationValueAttributes.Parameter))
-            {
-                simulationValue.SetParameter(parameterValue);
-                logger?.Information($"Set parameter {simulationBase}-{parameterName} to {parameterValue}");
-            }
+            dynamic? simulationValue = field.GetValue(simulationBase);
+            if (simulationValue != null)
+                if (simulationValue.Attributes.Contains(SimulationValueAttributes.Parameter))
+                {
+                    simulationValue.SetParameter(parameterValue);
+                    logger?.Information($"Set parameter {simulationBase}-{parameterName} to {parameterValue}");
+                }
         }
     }
 
@@ -443,9 +421,12 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
 
         foreach (IConnection connection in Model.Connections)
         {
-            var myEdge = new DotEdge().From(connection.SourceObject.Easy2SimName)
-                .To(connection.TargetObject.Easy2SimName);
-            graph.Add(myEdge);
+            if (connection.SourceObject != null && connection.TargetObject != null)
+            {
+                var myEdge = new DotEdge().From(connection.SourceObject.Easy2SimName)
+                    .To(connection.TargetObject.Easy2SimName);
+                graph.Add(myEdge);
+            }
         }
 
         await using var writer = new StringWriter();
@@ -478,7 +459,7 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
                 foreach (PropertyInfo propertyInfo in type.GetProperties())
                     if (IsSimulationValue(propertyInfo.PropertyType))
                     {
-                        dynamic simulationValue = propertyInfo.GetValue(simulationBase);
+                        dynamic? simulationValue = propertyInfo.GetValue(simulationBase);
                         if (simulationValue == null)
                             continue;
                         if (simulationValue.Attributes.Contains(SimulationValueAttributes.Parameter))
@@ -491,7 +472,7 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
                 foreach (FieldInfo fieldInfo in type.GetFields())
                     if (IsSimulationValue(fieldInfo.FieldType))
                     {
-                        dynamic simulationValue = fieldInfo.GetValue(simulationBase); 
+                        dynamic? simulationValue = fieldInfo.GetValue(simulationBase);
                         if (simulationValue == null)
                             continue;
                         if (simulationValue.Attributes.Contains(SimulationValueAttributes.Parameter))
@@ -519,7 +500,7 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
                 {
                     if (IsSimulationValue(propertyInfo.PropertyType))
                     {
-                        dynamic simulationValue = propertyInfo.GetValue(simulationBase);
+                        dynamic? simulationValue = propertyInfo.GetValue(simulationBase);
                         if (simulationValue == null)
                             continue;
                         if (simulationValue.Attributes.Contains(SimulationValueAttributes.Visualization))
@@ -539,7 +520,7 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
                 {
                     if (IsSimulationValue(fieldInfo.FieldType))
                     {
-                        dynamic simulationValue = fieldInfo.GetValue(simulationBase);
+                        dynamic? simulationValue = fieldInfo.GetValue(simulationBase);
                         if (simulationValue == null)
                             continue;
                         if (simulationValue.Attributes.Contains(SimulationValueAttributes.Visualization))
@@ -579,11 +560,11 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
                 {
                     if (IsSimulationValue(propertyInfo.PropertyType))
                     {
-                        dynamic simulationValue = propertyInfo.GetValue(simulationBase);
-                        if (simulationValue.Attributes.Contains(SimulationValueAttributes.VisualizationInitialize))
-                        {
-                            LoggingExtensions.LogVisualizationInformation(simulationBase, simulationTime, simulationValue);
-                        }
+                        dynamic? simulationValue = propertyInfo.GetValue(simulationBase);
+                        if (simulationValue != null)
+                            if (simulationValue.Attributes.Contains(SimulationValueAttributes.VisualizationInitialize))
+                                LoggingExtensions.LogVisualizationInformation(simulationBase, simulationTime, simulationValue);
+
                     }
                 }
 
@@ -591,11 +572,11 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
                 {
                     if (IsSimulationValue(fieldInfo.FieldType))
                     {
-                        dynamic simulationValue = fieldInfo.GetValue(simulationBase);
-                        if (simulationValue.Attributes.Contains(SimulationValueAttributes.VisualizationInitialize))
-                        {
-                            LoggingExtensions.LogVisualizationInformation(simulationBase, simulationTime, simulationValue);
-                        }
+                        dynamic? simulationValue = fieldInfo.GetValue(simulationBase);
+                        if (simulationValue != null)
+                            if (simulationValue.Attributes.Contains(SimulationValueAttributes.VisualizationInitialize))
+                                LoggingExtensions.LogVisualizationInformation(simulationBase, simulationTime, simulationValue);
+
                     }
                 }
             }
@@ -605,5 +586,11 @@ public class SimulationEnvironment : IFrameworkBase, IDisposable
             Model.Easy2SimLogging.VisualizationLogger.Error("Can not log visualization initialize parameters");
             Model.Easy2SimLogging.VisualizationLogger.Error(ex.ToString());
         }
+    }
+
+    public SimulationEnvironment Clone()
+    {
+         
+        return new SimulationEnvironment(Model.Clone());
     }
 }

@@ -1,5 +1,4 @@
-﻿using Easy2Sim.Environment;
-using Easy2Sim.Interfaces;
+﻿using Easy2Sim.Interfaces;
 using Easy2Sim.Solvers;
 using Newtonsoft.Json;
 
@@ -18,12 +17,10 @@ public class PropertyValueChangedEventArgs<T> : EventArgs, IFrameworkBase
     [JsonProperty]
     public T? OldValue { get; }
     [JsonIgnore]
-    public SolverBase? Solver  => ComponentRegister.GetSolver(SolverGuid);
+    public SolverBase? Solver { get; set; }
 
     [JsonProperty]
     public SimulationEventType SimulationEventType { get; set; }
-    [JsonIgnore]
-    public Guid SolverGuid { get; set; }
 
     [JsonConstructor]
     public PropertyValueChangedEventArgs() { }
@@ -31,7 +28,7 @@ public class PropertyValueChangedEventArgs<T> : EventArgs, IFrameworkBase
     {
         NewValue = newValue;
         OldValue = oldValue;
-        SolverGuid  = solver.Guid;
+        Solver  = solver;
         SimulationEventType = type;
         Guid = Guid.NewGuid();
     }

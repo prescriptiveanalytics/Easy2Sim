@@ -2,6 +2,7 @@
 using Easy2Sim.Interfaces;
 using Easy2Sim.Solvers;
 using Newtonsoft.Json;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Easy2Sim.Solvers.Discrete;
 
@@ -15,20 +16,42 @@ public abstract class SimulationBase : IFrameworkBase
     [JsonProperty]
     public Guid Guid { get; internal set; } = Guid.NewGuid();
 
+    private SimulationEnvironment? _environment;
+    [JsonIgnore]
+    public SimulationEnvironment? SimulationEnvironment
+    {
+        get => _environment;
+        set
+        {
+            _environment = value;
+            Type type = this.GetType();
+            //Check properties
+            foreach (PropertyInfo propertyInfo in type.GetProperties())
+                if (propertyInfo.PropertyType.IsSimulationValue())
+                {
+                    dynamic? simulationValue = propertyInfo.GetValue(this);
+                    if (simulationValue == null)
+                        continue;
+                    if (SimulationEnvironment != null)
+                        simulationValue.SimulationEnvironment = SimulationEnvironment;
+                }
+
+            //Check fields
+            foreach (FieldInfo fieldInfo in type.GetFields())
+                if (fieldInfo.FieldType.IsSimulationValue())
+                {
+                    dynamic? simulationValue = fieldInfo.GetValue(this);
+                    if (simulationValue == null)
+                        continue;
+                    if (SimulationEnvironment != null)
+                        simulationValue.SimulationEnvironment = SimulationEnvironment;
+                }
+        }
+    }
+
     [JsonProperty]
     private int _simulationIndex;
 
-    /// <summary>
-    /// Keep a reference to the current version of the Environment
-    /// </summary>
-    [JsonProperty]
-    public Guid SimulationEnvironmentGuid { get; set; }
-
-    /// <summary>
-    /// Keep a reference to the current version of the Solver
-    /// </summary>
-    [JsonProperty]
-    public Guid SolverGuid { get; set; }
     /// <summary>
     /// Unique name that is generated for each component
     /// </summary>
@@ -86,7 +109,7 @@ public abstract class SimulationBase : IFrameworkBase
             {
                 if (propertyInfo.PropertyType.IsSimulationValue())
                 {
-                    dynamic simulationValue = propertyInfo.GetValue(this);
+                    dynamic? simulationValue = propertyInfo.GetValue(this);
                     if (simulationValue == null)
                         continue;
                     simulationValue.ParentName = Easy2SimName;
@@ -97,7 +120,7 @@ public abstract class SimulationBase : IFrameworkBase
             {
                 if (fieldInfo.FieldType.IsSimulationValue())
                 {
-                    dynamic simulationValue = fieldInfo.GetValue(this);
+                    dynamic? simulationValue = fieldInfo.GetValue(this);
                     if (simulationValue == null)
                         continue;
                     simulationValue.ParentName = Easy2SimName;
@@ -111,39 +134,14 @@ public abstract class SimulationBase : IFrameworkBase
         }
     }
 
-    [JsonIgnore]
-    private SimulationEnvironment? _simulationEnvironment;
 
-    /// <summary>
-    /// Simulation environment where the simulation component is registered.
-    /// </summary>
-    [JsonIgnore]
-    public SimulationEnvironment? SimulationEnvironment
-    {
-        get
-        {
-            _simulationEnvironment = ComponentRegister.GetEnvironment(SimulationEnvironmentGuid);
-            return _simulationEnvironment;
-        }
-    }
-
-    [JsonIgnore]
-    private SolverBase? _solverBase;
 
 
     /// <summary>
     /// Solver where the component is registered.
     /// </summary>
     [JsonIgnore]
-    public SolverBase? Solver
-    {
-        get
-        {
-            _solverBase = ComponentRegister.GetSolver(SolverGuid);
-
-            return _solverBase;
-        }
-    }
+    public SolverBase? Solver { get; set; }
 
     public string LoggingName =>
         !string.IsNullOrEmpty(VisualizationName.Value) ? VisualizationName.Value : Easy2SimName;
@@ -177,19 +175,10 @@ public abstract class SimulationBase : IFrameworkBase
     /// If a environment or environment guid is given the component is added to the environments components.
     /// The solver is necessary for the simulation.
     /// </summary>
-    protected SimulationBase(SimulationEnvironment environment, SolverBase solver) : this(environment.Guid,
-        solver.Guid)
+    protected SimulationBase(SimulationEnvironment environment, SolverBase solver)
     {
-    }
-
-    /// <summary>
-    /// If a environment or environment guid is given the component is added to the environments components.
-    /// The solver is necessary for the simulation.
-    /// </summary>
-    protected SimulationBase(Guid environmentGuid, Guid solverGuid)
-    {
-        SolverGuid = solverGuid;
-        SimulationEnvironmentGuid = environmentGuid;
+        Solver = solver;
+        SimulationEnvironment = environment;
         SetSimulationIndex();
         Guid = Guid.NewGuid();
         Type t = GetType();
@@ -198,13 +187,12 @@ public abstract class SimulationBase : IFrameworkBase
             SimulationValueAttributes.Parameter);
         SimulationEnvironment?.AddComponent(this);
     }
-
     /// <summary>
     /// If a environment or environment guid is given the component is added to the environments components
     /// </summary>
     protected SimulationBase(SimulationEnvironment environment)
     {
-        SimulationEnvironmentGuid = environment.Guid;
+        SimulationEnvironment = environment;
         SetSimulationIndex();
         Guid = Guid.NewGuid();
         Type t = GetType();
@@ -214,20 +202,6 @@ public abstract class SimulationBase : IFrameworkBase
         SimulationEnvironment?.AddComponent(this);
     }
 
-    /// <summary>
-    /// If a environment or environment guid is given the component is added to the environments components
-    /// </summary>
-    protected SimulationBase(Guid environmentGuid)
-    {
-        SimulationEnvironmentGuid = environmentGuid;
-        SetSimulationIndex();
-        Guid = Guid.NewGuid();
-        Type t = GetType();
-        Easy2SimName = t.Name + Index;
-        VisualizationName = new SimulationValue<string>(string.Empty, nameof(VisualizationName), this,
-            SimulationValueAttributes.Parameter);
-        SimulationEnvironment?.AddComponent(this);
-    }
 
     /// <summary>
     /// Returns all simulation bases for a given output parameter name
@@ -240,7 +214,7 @@ public abstract class SimulationBase : IFrameworkBase
             return new List<SimulationBase>();
 
         List<SimulationBase> resultList = new List<SimulationBase>();
-        List<SimulationBase> connectedComponents = 
+        List<SimulationBase> connectedComponents =
         SimulationEnvironment.Model.Connections
             .Where(x => x.SourceObject == this)
             .Select(x => x.TargetObject).Cast<SimulationBase>().ToList();
@@ -262,7 +236,11 @@ public abstract class SimulationBase : IFrameworkBase
         List<SimulationBase?> connectedComponents = SimulationEnvironment.Model.Connections
             .Where(x => x.TargetObject == this)
             .Select(x => x.SourceObject).ToList();
-        resultList.AddRange(connectedComponents);
+        foreach (SimulationBase? connectedComponent in connectedComponents)
+        {
+            if (connectedComponent == null) continue;
+            resultList.Add(connectedComponent);
+        }
         return resultList;
     }
 
@@ -297,4 +275,17 @@ public abstract class SimulationBase : IFrameworkBase
     /// When calculate finish ends
     /// </summary>
     public virtual void End() { }
+
+
+    public void CheckCorrectInitialization([NotNull] SimulationEnvironment? simulationEnvironment, [NotNull] SolverBase? solver)
+    {
+        ArgumentNullException.ThrowIfNull(simulationEnvironment, "simulationEnvironment");
+        ArgumentNullException.ThrowIfNull(solver, "solver");
+    }
+    public void CheckCorrectInitialization([NotNull] SimulationEnvironment? simulationEnvironment, [NotNull] SolverBase? solver, [NotNull]string? name)
+    {
+        ArgumentNullException.ThrowIfNull(simulationEnvironment, "simulationEnvironment");
+        ArgumentNullException.ThrowIfNull(solver, "solver");
+        ArgumentNullException.ThrowIfNull(name, "name");
+    }
 }

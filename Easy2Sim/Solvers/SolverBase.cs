@@ -12,19 +12,7 @@ namespace Easy2Sim.Solvers;
 public abstract class SolverBase : IFrameworkBase
 {
     [JsonIgnore]
-    private Guid _guid = Guid.NewGuid();
-    /// <summary>
-    /// Unique id, of each individual component
-    /// </summary>
-    [JsonIgnore]
-    public Guid Guid
-    {
-        get => _guid;
-        internal set
-        {
-            _guid = value;
-        }
-    }
+    public Guid Guid { get; set; }
 
 
     /// <summary>
@@ -39,8 +27,18 @@ public abstract class SolverBase : IFrameworkBase
     [JsonIgnore]
     public long SimulationTime => BaseModel.SimulationTime;
 
+    private SimulationEnvironment? _simulationEnvironment;
     [JsonIgnore]
-    public SimulationEnvironment? SimulationEnvironment => ComponentRegister.GetEnvironment(BaseModel.EnvironmentGuid);
+    public SimulationEnvironment? SimulationEnvironment
+    {
+        get => _simulationEnvironment;
+        set
+        {
+            _simulationEnvironment = value;
+            if (BaseModel != null)
+                BaseModel.SimulationEnvironment = value;
+        }
+    }
 
     /// <summary>
     /// If the solver is a discrete solver it is returned.

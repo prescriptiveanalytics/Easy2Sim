@@ -10,8 +10,9 @@ namespace Easy2Sim.Connect;
 /// <summary>
 /// This class defines connections in the simulation framework
 /// </summary>
-public class Connection<T> : IConnection
+public class Connection<T> : IConnection, ICloneable<Connection<T>>
 {
+    [JsonProperty]
     public bool IsComponentConnection { get; }
 
     public void Reapply()
@@ -29,19 +30,14 @@ public class Connection<T> : IConnection
     [JsonProperty]
     public Guid Guid { get; set; } = Guid.NewGuid();
 
-
-    /// <summary>
-    /// Guid of the environment in which the connection is registered
-    /// </summary>
-    [JsonProperty]
-    public Guid EnvironmentGuid { get; set; }
-
+    
     /// <summary>
     /// Returns the current environment in which the connection is registered.
     /// Returns null if no environment can be found.
     /// </summary>
     [JsonIgnore]
-    public SimulationEnvironment? SimulationEnvironment => ComponentRegister.GetEnvironment(EnvironmentGuid);
+    public SimulationEnvironment? SimulationEnvironment { get; set; }
+
 
     [JsonIgnore]
     public SimulationBase? SourceObject
@@ -76,16 +72,16 @@ public class Connection<T> : IConnection
             {
                 SimulationBase? simObject = SimulationEnvironment?.Model.SimulationObjects
                     .FirstOrDefault(x => x.Value.Easy2SimName == SourceName).Value;
-                PropertyInfo[] properties = simObject.GetType().GetProperties();
+                PropertyInfo[]? properties = simObject?.GetType().GetProperties();
                 // Get the PropertyInfo for the 'Value' property
-                PropertyInfo propertyInfo = properties.FirstOrDefault(x => x.Name.Contains(SourceProperty));
+                PropertyInfo? propertyInfo = properties?.FirstOrDefault(x => x.Name.Contains(SourceProperty));
                 if (propertyInfo != null)
                 {
                     return (SimulationValue<T>?)propertyInfo.GetValue(simObject);
                 }
 
-                FieldInfo[] fInfos = simObject.GetType().GetFields();
-                FieldInfo fInfo = fInfos.FirstOrDefault(x => x.Name.Contains(SourceProperty));
+                FieldInfo[]? fInfos = simObject?.GetType().GetFields();
+                FieldInfo? fInfo = fInfos?.FirstOrDefault(x => x.Name.Contains(SourceProperty));
                 if (fInfo != null)
                 {
                     return (SimulationValue<T>?)fInfo.GetValue(simObject);
@@ -93,7 +89,7 @@ public class Connection<T> : IConnection
             }
             catch (Exception e)
             {
-                SimulationEnvironment?.LogEnvironmentError($"Exception while retrieving Source in connection: {this.ToString()} (guid: " + Guid + ")");
+                SimulationEnvironment?.LogEnvironmentError($"Exception {e.ToString()} while retrieving Source in connection: {this.ToString()} (guid: " + Guid + ")");
                 return null;
             }
 
@@ -109,27 +105,27 @@ public class Connection<T> : IConnection
             try
             {
 
-                SimulationBase simObject = SimulationEnvironment.Model.SimulationObjects
+                SimulationBase? simObject = SimulationEnvironment?.Model.SimulationObjects
                     .FirstOrDefault(x => x.Value.Easy2SimName == TargetName).Value;
-                PropertyInfo[] properties = simObject.GetType().GetProperties();
+                PropertyInfo[]? properties = simObject?.GetType().GetProperties();
                 // Get the PropertyInfo for the 'Value' property
-                PropertyInfo propertyInfo = properties.FirstOrDefault(x => x.Name.Contains(TargetProperty));
+                PropertyInfo? propertyInfo = properties?.FirstOrDefault(x => x.Name.Contains(TargetProperty));
                 if (propertyInfo != null)
                 {
-                    return (SimulationValue<T>)propertyInfo.GetValue(simObject);
+                    return (SimulationValue<T>?)propertyInfo.GetValue(simObject);
                 }
 
-                FieldInfo[] fInfos = simObject.GetType().GetFields();
-                FieldInfo fInfo = fInfos.FirstOrDefault(x => x.Name.Contains(TargetProperty));
+                FieldInfo[]? fInfos = simObject?.GetType().GetFields();
+                FieldInfo? fInfo = fInfos?.FirstOrDefault(x => x.Name.Contains(TargetProperty));
                 if (fInfo != null)
                 {
-                    return (SimulationValue<T>)fInfo.GetValue(simObject);
+                    return (SimulationValue<T>?)fInfo.GetValue(simObject);
                 }
             }
             catch (Exception e)
             {
 
-                SimulationEnvironment?.LogEnvironmentError($"Exception while retrieving Target in connection: {this.ToString()} (guid: " + Guid +")");
+                SimulationEnvironment?.LogEnvironmentError($"Exception {e} while retrieving Target in connection: {this.ToString()} (guid: " + Guid +")");
                 return null;
             }
             SimulationEnvironment?.LogEnvironmentError($"Target not found in connection: {this.ToString()}" + Guid);
@@ -137,25 +133,25 @@ public class Connection<T> : IConnection
         }
     }
     [JsonIgnore]
-    public dynamic DynamicTarget
+    public dynamic? DynamicTarget
     {
         get
         {
-            SimulationBase simObject = SimulationEnvironment.Model.SimulationObjects
+            SimulationBase? simObject = SimulationEnvironment?.Model.SimulationObjects
                 .FirstOrDefault(x => x.Value.Easy2SimName == TargetName).Value;
-            PropertyInfo[] properties = simObject.GetType().GetProperties();
+            PropertyInfo[]? properties = simObject?.GetType().GetProperties();
             // Get the PropertyInfo for the 'Value' property
-            PropertyInfo propertyInfo = properties.FirstOrDefault(x => x.Name.Contains(TargetProperty));
+            PropertyInfo? propertyInfo = properties?.FirstOrDefault(x => x.Name.Contains(TargetProperty));
             if (propertyInfo != null)
             {
-                return (dynamic)propertyInfo.GetValue(simObject);
+                return (dynamic?)propertyInfo.GetValue(simObject);
             }
 
-            FieldInfo[] fInfos = simObject.GetType().GetFields();
-            FieldInfo fInfo = fInfos.FirstOrDefault(x => x.Name.Contains(TargetProperty));
+            FieldInfo[]? fInfos = simObject?.GetType().GetFields();
+            FieldInfo? fInfo = fInfos?.FirstOrDefault(x => x.Name.Contains(TargetProperty));
             if (fInfo != null)
             {
-                return (dynamic)fInfo.GetValue(simObject);
+                return (dynamic?)fInfo.GetValue(simObject);
             }
 
             return null;
@@ -173,17 +169,19 @@ public class Connection<T> : IConnection
     public string TargetProperty { get; set; }
 
     [JsonConstructor]
-    public Connection()
+    public Connection(bool isComponentConnection = false)
     {
         SourceName = string.Empty;
         TargetName = string.Empty;
         SourceProperty = string.Empty;
         TargetProperty = string.Empty;
+        SimulationEnvironment = null;
+        IsComponentConnection = isComponentConnection;
     }
-    public Connection(SimulationValue<T>? source, SimulationValue<T>? target, Guid environmentGuid, bool isComponentConnection)
+    public Connection(SimulationValue<T>? source, SimulationValue<T>? target, SimulationEnvironment environment, bool isComponentConnection)
     {
         IsComponentConnection = isComponentConnection;
-        EnvironmentGuid = environmentGuid;
+        SimulationEnvironment = environment;
         if (source != null && target != null)
         {
             SourceName = source.ParentName;
@@ -204,10 +202,10 @@ public class Connection<T> : IConnection
             SimulationEnvironment?.LogEnvironmentError("Can not create connection: source or target is null");
         }
     }
-    public Connection(string sourceParent, string sourceProperty, string targetParent, string targetProperty, Guid environmentGuid, bool isComponentConnection)
+    public Connection(string sourceParent, string sourceProperty, string targetParent, string targetProperty, SimulationEnvironment environment, bool isComponentConnection)
     {
         IsComponentConnection = isComponentConnection;
-        EnvironmentGuid = environmentGuid;
+        SimulationEnvironment = environment;
         SourceName = sourceParent;
         TargetName = targetParent;
 
@@ -222,14 +220,15 @@ public class Connection<T> : IConnection
 
     private void SourceOnPropertyChanged(object? sender, PropertyValueChangedEventArgs<T> e)
     {
-        if (e.NewValue is IList && DynamicTarget.Value is IList)
+        if (e.NewValue is IList && DynamicTarget?.Value is IList)
         {
             DynamicTarget.Value.AddRange(e.NewValue);
             DynamicTarget.ValueChanged = true;
         }
-        else if (DynamicTarget.Value is List<T> targetList)
+        else if (DynamicTarget?.Value is List<T> targetList)
         {
-            targetList.Add(e.NewValue);
+            if (e.NewValue != null) 
+                targetList.Add(e.NewValue);
             DynamicTarget.ValueChanged = true;
         }
         else
@@ -251,6 +250,19 @@ public class Connection<T> : IConnection
                         break;
                 }
             }
+    }
+
+    public Connection<T> Clone()
+    {
+        Connection<T> result = new Connection<T>(IsComponentConnection);
+        result.SimulationEnvironment = null;
+        result.SourceName = SourceName;
+        result.SourceProperty = SourceProperty;
+
+        result.TargetName = TargetName;
+        result.TargetProperty = TargetProperty;
+        
+        return result;
     }
 
     public override string ToString()

@@ -1,6 +1,5 @@
 ﻿using Easy2Sim.Interfaces;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace Easy2Sim.Solvers.Discrete;
 
@@ -79,5 +78,15 @@ public record struct DiscreteEvent : IFrameworkBase, IComparable<DiscreteEvent>
         if (TimeStamp != other.TimeStamp)
             return TimeStamp.CompareTo(other.TimeStamp);
         return TimeStampIndex.CompareTo(other.TimeStampIndex);
+    }
+
+    /// <summary>
+    /// Duplication with new guid
+    /// </summary>
+    public DiscreteEvent Duplicate()
+    {
+        DiscreteEvent result = new DiscreteEvent(TimeStamp, ComponentName);
+        result.TimeStampIndex = TimeStampIndex;
+        return result;
     }
 }

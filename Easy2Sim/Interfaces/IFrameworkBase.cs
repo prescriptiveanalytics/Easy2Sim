@@ -12,6 +12,7 @@ public interface IFrameworkBase
     /// <summary>
     /// The guid allows to uniquely identify each element in the simulation.
     /// </summary>
+    [JsonIgnore]
     public Guid Guid { get; }
 
     /// <summary>
@@ -21,7 +22,8 @@ public interface IFrameworkBase
     {
         JsonSerializerSettings settings = new JsonSerializerSettings
         {
-            TypeNameHandling = TypeNameHandling.All
+            TypeNameHandling = TypeNameHandling.All,
+            PreserveReferencesHandling = PreserveReferencesHandling.Objects
         };
         return JsonConvert.SerializeObject(this, settings);
     }

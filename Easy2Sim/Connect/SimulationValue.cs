@@ -1,37 +1,34 @@
-﻿using System.Collections;
-using System.Text;
+﻿using System.Text;
 using Easy2Sim.Environment;
 using Easy2Sim.Interfaces;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace Easy2Sim.Connect;
 
-public class SimulationValue<T> : IFrameworkBase, ISimulationValue
+public class SimulationValue<T> : IFrameworkBase, ISimulationValue, ICloneable<SimulationValue<T>>
 {
     [JsonProperty]
     public Guid Guid { get; }
 
     [JsonIgnore]
-    public Guid EnvironmentGuid { get; set; }
+    public SimulationEnvironment? SimulationEnvironment { get; set; }
 
     [JsonIgnore]
     public SimulationBase? Parent
     {
         get
         {
-            SimulationEnvironment environment = ComponentRegister.GetEnvironment(EnvironmentGuid);
-            SimulationBase simBase = environment.GetComponentByName(ParentName);
+            SimulationBase? simBase = SimulationEnvironment?.GetComponentByName(ParentName);
             if (simBase == null)
             {
-                simBase.LogError($"Simulation value ({ParentName}-{PropertyName} parent not found");
+                SimulationEnvironment?.LogEnvironmentError($"Simulation value ({ParentName}-{PropertyName} parent not found");
             }
             return simBase;
         }
     }
 
     [JsonProperty]
-    public string PropertyName { get; }
+    public string PropertyName { get; set; }
     [JsonProperty]
     public string ParentName { get; set; }
 
@@ -48,9 +45,11 @@ public class SimulationValue<T> : IFrameworkBase, ISimulationValue
     [JsonConstructor]
     public SimulationValue()
     {
+        Guid = Guid.NewGuid();
         PropertyName = string.Empty;
         ParentName = string.Empty;
         Attributes = new List<SimulationValueAttributes>();
+        SimulationEnvironment = null;
     }
     public SimulationValue(T value, string propertyName, SimulationBase simBase, List<SimulationValueAttributes> attributes)
     {
@@ -59,7 +58,7 @@ public class SimulationValue<T> : IFrameworkBase, ISimulationValue
         ParentName = simBase.Easy2SimName;
         _value = value;
         Guid = Guid.NewGuid();
-        EnvironmentGuid = simBase.SimulationEnvironmentGuid;
+        SimulationEnvironment = simBase.SimulationEnvironment;
     }
     public SimulationValue(T value, string propertyName, SimulationBase simBase, SimulationValueAttributes attribute)
     {
@@ -68,7 +67,7 @@ public class SimulationValue<T> : IFrameworkBase, ISimulationValue
         ParentName = simBase.Easy2SimName;
         _value = value;
         Guid = Guid.NewGuid();
-        EnvironmentGuid = simBase.SimulationEnvironmentGuid;
+        SimulationEnvironment = simBase.SimulationEnvironment;
     }
 
     // Event to be raised when the attribute changes
@@ -84,6 +83,7 @@ public class SimulationValue<T> : IFrameworkBase, ISimulationValue
     /// <summary>
     /// In case the property is used, a discrete calculation event is created
     /// </summary>
+    [JsonProperty]
     public T? Value
     {
         get => _value;
@@ -121,6 +121,10 @@ public class SimulationValue<T> : IFrameworkBase, ISimulationValue
 
     public void OnPropertyChanged(T? newValue, T? oldValue, SimulationEventType type)
     {
+        if (Parent?.Solver == null)
+        {
+            return;
+        }
         PropertyChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(newValue, oldValue, Parent.Solver, type));
     }
 
@@ -133,7 +137,20 @@ public class SimulationValue<T> : IFrameworkBase, ISimulationValue
             sb.Append(_value.ToString());
         return sb.ToString();
     }
-
+    [JsonIgnore]
     public Type GenericType => typeof(T);
+
+
+    public SimulationValue<T> Clone()
+    {
+        SimulationValue<T> result = new SimulationValue<T>();
+        result.PropertyName = PropertyName;
+        result.ParentName = ParentName;
+        result.Attributes.AddRange(Attributes);
+        result.Value = Value;
+        result.ValueChanged = ValueChanged;
+        return result;
+    }
+
 
 }

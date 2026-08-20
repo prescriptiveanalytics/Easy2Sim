@@ -1,92 +1,86 @@
 ﻿using Easy2Sim.Connect;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Easy2Sim.Environment
+namespace Easy2Sim.Environment;
+
+internal static class SimulationBaseExtensions
 {
-    internal static class SimulationBaseExtensions
+    /// <summary>
+    /// Check if a type is a SimulationValue<>
+    /// </summary>
+    public static bool IsSimulationValue(this Type type)
     {
-        /// <summary>
-        /// Check if a type is a SimulationValue<>
-        /// </summary>
-        public static bool IsSimulationValue(this Type type)
+        return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(SimulationValue<>);
+    }
+    public static bool IsFeedbackSimulationValue(this Type type)
+    {
+        return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(FeedbackSimulationValue<,>);
+    }
+
+    internal static List<dynamic> GetSimulationValues(this SimulationBase simbase, SimulationValueAttributes attribute)
+    {
+        List<dynamic> simulationValues = new List<dynamic>();
+        Type type = simbase.GetType();
+        foreach (PropertyInfo propertyInfo in type.GetProperties())
         {
-            return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(SimulationValue<>);
+            if (propertyInfo.PropertyType.IsSimulationValue())
+            {
+                dynamic? simulationValue = propertyInfo.GetValue(simbase);
+                if (simulationValue == null)
+                    continue;
+                if (simulationValue.Attributes.Contains(attribute))
+                {
+                    simulationValues.Add(simulationValue);
+                }
+            }
         }
-        public static bool IsFeedbackSimulationValue(this Type type)
+        foreach (FieldInfo fieldInfo in type.GetFields())
         {
-            return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(FeedbackSimulationValue<,>);
+            if (fieldInfo.FieldType.IsSimulationValue())
+            {
+                dynamic? simulationValue = fieldInfo.GetValue(simbase);
+                if (simulationValue == null)
+                    continue;
+                if (simulationValue.Attributes.Contains(attribute))
+                {
+                    simulationValues.Add(simulationValue);
+                }
+            }
         }
 
-        internal static List<dynamic> GetSimulationValues(this SimulationBase simbase, SimulationValueAttributes attribute)
+        return simulationValues;
+    }
+    internal static List<dynamic> GetFeedbackSimulationValues(this SimulationBase simbase, SimulationValueAttributes attribute)
+    {
+        List<dynamic> simulationValues = new List<dynamic>();
+        Type type = simbase.GetType();
+        foreach (PropertyInfo propertyInfo in type.GetProperties())
         {
-            List<dynamic> simulationValues = new List<dynamic>();
-            Type type = simbase.GetType();
-            foreach (PropertyInfo propertyInfo in type.GetProperties())
+            if (propertyInfo.PropertyType.IsFeedbackSimulationValue())
             {
-                if (propertyInfo.PropertyType.IsSimulationValue())
+                dynamic? simulationValue = propertyInfo.GetValue(simbase);
+                if (simulationValue == null)
+                    continue;
+                if (simulationValue.Attributes.Contains(attribute))
                 {
-                    dynamic simulationValue = propertyInfo.GetValue(simbase);
-                    if (simulationValue == null)
-                        continue;
-                    if (simulationValue.Attributes.Contains(attribute))
-                    {
-                        simulationValues.Add(simulationValue);
-                    }
+                    simulationValues.Add(simulationValue);
                 }
             }
-            foreach (FieldInfo fieldInfo in type.GetFields())
-            {
-                if (fieldInfo.FieldType.IsSimulationValue())
-                {
-                    dynamic simulationValue = fieldInfo.GetValue(simbase);
-                    if (simulationValue == null)
-                        continue;
-                    if (simulationValue.Attributes.Contains(attribute))
-                    {
-                        simulationValues.Add(simulationValue);
-                    }
-                }
-            }
-
-            return simulationValues;
         }
-        internal static List<dynamic> GetFeedbackSimulationValues(this SimulationBase simbase, SimulationValueAttributes attribute)
+        foreach (FieldInfo fieldInfo in type.GetFields())
         {
-            List<dynamic> simulationValues = new List<dynamic>();
-            Type type = simbase.GetType();
-            foreach (PropertyInfo propertyInfo in type.GetProperties())
+            if (fieldInfo.FieldType.IsFeedbackSimulationValue())
             {
-                if (propertyInfo.PropertyType.IsFeedbackSimulationValue())
+                dynamic? simulationValue = fieldInfo.GetValue(simbase);
+                if (simulationValue == null)
+                    continue;
+                if (simulationValue.Attributes.Contains(attribute))
                 {
-                    dynamic simulationValue = propertyInfo.GetValue(simbase);
-                    if (simulationValue == null)
-                        continue;
-                    if (simulationValue.Attributes.Contains(attribute))
-                    {
-                        simulationValues.Add(simulationValue);
-                    }
+                    simulationValues.Add(simulationValue);
                 }
             }
-            foreach (FieldInfo fieldInfo in type.GetFields())
-            {
-                if (fieldInfo.FieldType.IsFeedbackSimulationValue())
-                {
-                    dynamic simulationValue = fieldInfo.GetValue(simbase);
-                    if (simulationValue == null)
-                        continue;
-                    if (simulationValue.Attributes.Contains(attribute))
-                    {
-                        simulationValues.Add(simulationValue);
-                    }
-                }
-            }
-
-            return simulationValues;
         }
+
+        return simulationValues;
     }
 }

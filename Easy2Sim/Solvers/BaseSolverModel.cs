@@ -1,4 +1,5 @@
-﻿using Easy2Sim.Interfaces;
+﻿using Easy2Sim.Environment;
+using Easy2Sim.Interfaces;
 using Newtonsoft.Json;
 
 namespace Easy2Sim.Solvers;
@@ -6,7 +7,7 @@ namespace Easy2Sim.Solvers;
 /// <summary>
 /// Base class for a solver model, which holds all data necessary for a solver to run a simulation
 /// </summary>
-public class BaseSolverModel : IFrameworkBase
+public class BaseSolverModel : IFrameworkBase, ICloneable<BaseSolverModel>
 {
     /// <summary>
     /// Delay that happens after each simulation step.
@@ -24,7 +25,7 @@ public class BaseSolverModel : IFrameworkBase
     /// Therefore it needs a reference to the simulation environment in order to run the simulation.
     /// </summary>
     [JsonProperty]
-    public Guid EnvironmentGuid { get; set; }
+    public SimulationEnvironment? SimulationEnvironment{ get; set; }
 
     /// <summary>
     /// Current time in the simulation
@@ -67,19 +68,37 @@ public class BaseSolverModel : IFrameworkBase
 
     public BaseSolverModel()
     {
+        SimulationName = string.Empty;
         DateTimeConfigurations = new DateTimeConfigurations();
         Guid = Guid.NewGuid();
         Results = new Dictionary<string, string>();
         Delay = 0;
         IsFinished = false;
     }
-    public BaseSolverModel(Guid environmentGuid)
+    public BaseSolverModel(SimulationEnvironment? environment)
     {
+        SimulationName = string.Empty;
         DateTimeConfigurations = new DateTimeConfigurations();
         Guid = Guid.NewGuid();
         Results = new Dictionary<string, string>();
         Delay = 0;
         IsFinished = false;
-        EnvironmentGuid = environmentGuid;
+        SimulationEnvironment = environment;
+    }
+
+    public BaseSolverModel Clone()
+    {
+        BaseSolverModel result = new BaseSolverModel();
+        result.Delay = Delay;
+        result.IsFinished = IsFinished;
+        foreach (KeyValuePair<string, string> pair in Results)
+            result.Results.Add(pair.Key, pair.Value);
+
+        result.SimulationEnvironment = null;
+        result.Fitness = Fitness;
+        result.DateTimeConfigurations = DateTimeConfigurations.Clone();
+        result.SimulationTime = SimulationTime;
+        result.SimulationName = SimulationName;
+        return result;
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Serilog.Core;
 using System.Net.Sockets;
 using System.Text;
+using Easy2Sim.Interfaces;
 
 namespace Easy2Sim.Environment;
 
@@ -17,7 +18,7 @@ namespace Easy2Sim.Environment;
 /// </code>
 /// 
 /// </summary>
-public class Easy2SimLogging
+public class Easy2SimLogging : ICloneable<Easy2SimLogging>
 {
     /// <summary>
     /// Components can use this logger to log information
@@ -74,5 +75,14 @@ public class Easy2SimLogging
         UdpClient udpClient = new UdpClient();
         byte[] data = Encoding.UTF8.GetBytes(message);
         udpClient.Send(data, data.Length, ipAddress, port);
+    }
+
+    /// <summary>
+    /// Warning, Loggers are not cloned
+    /// </summary>
+    /// <returns></returns>
+    public Easy2SimLogging Clone()
+    {
+        return new Easy2SimLogging();
     }
 }

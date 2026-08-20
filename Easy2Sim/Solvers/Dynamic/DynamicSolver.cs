@@ -1,4 +1,5 @@
 ﻿using Easy2Sim.Environment;
+using Easy2Sim.Interfaces;
 using Easy2Sim.Solvers.Discrete;
 using Newtonsoft.Json;
 
@@ -7,57 +8,45 @@ namespace Easy2Sim.Solvers.Dynamic;
 /// <summary>
 /// Default solver if each component should be called exactly once per simulation time increase.
 /// </summary>
-public class DynamicSolver : SolverBase, IDisposable
+public class DynamicSolver : SolverBase, ICloneable<DynamicSolver>
 {
-    /// <summary>
-    /// The model holds the current state of the solver e.g. simulation time, time increase...
-    /// We keep a variable of exact type.
-    /// </summary>
-    [JsonProperty("dynamicSolverModel")]
-    private DynamicSolverModel _dynamicSolverModel;
 
-    [JsonIgnore]
-    public DynamicSolverModel DynamicSolverModel => _dynamicSolverModel;
+    [JsonProperty]
+    public DynamicSolverModel? DynamicSolverModel { get; set; }
 
     /// <summary>
     /// Better access to the simulation time during the simulation
     /// The real value is stored in the BaseModel
     /// </summary>
-    [JsonIgnore] 
-    public long SimulationTime => BaseModel.SimulationTime;
+    [JsonIgnore]
+    public new long SimulationTime => BaseModel.SimulationTime;
 
     /// <summary>
     /// Represents all data that is necessary to run one event based simulation.
     /// </summary>
-    [JsonProperty("model")]
+    [JsonProperty]
     public sealed override BaseSolverModel BaseModel { get; set; }
 
     [JsonConstructor]
-    public DynamicSolver(DynamicSolverModel dynamicSolverModel, BaseSolverModel model)
+    public DynamicSolver()
     {
         Guid = Guid.NewGuid();
-        _dynamicSolverModel = dynamicSolverModel;
-        BaseModel = model;
-        ComponentRegister.AddSolver(Guid, this);
+        DynamicSolverModel = null;
+        BaseModel = new BaseSolverModel(null);
+        SimulationEnvironment = null;
     }
-
 
     /// <summary>
     /// Default constructor for the dynamic solver.
-    /// A environment reference is necessary.
+    /// An environment reference is necessary.
     /// </summary>
-    public DynamicSolver(Guid environment)
+    public DynamicSolver(SimulationEnvironment environment)
     {
         Guid = Guid.NewGuid();
-        _dynamicSolverModel = new DynamicSolverModel();
+        DynamicSolverModel = new DynamicSolverModel();
         BaseModel = new BaseSolverModel(environment);
-        ComponentRegister.AddSolver(Guid, this);
+        SimulationEnvironment = environment;
     }
-    /// <summary>
-    /// Default constructor for the dynamic solver.
-    /// A environment reference is necessary.
-    /// </summary>
-    public DynamicSolver(SimulationEnvironment environment) : this(environment.Guid) { }
 
 
     /// <summary>
@@ -66,6 +55,8 @@ public class DynamicSolver : SolverBase, IDisposable
     /// </summary>
     public override void CalculateFinish()
     {
+        if (DynamicSolverModel == null)
+            throw new Exception("Dynamic solver model is null, can not CaclulateFinish");
         if (SimulationEnvironment == null)
             return;
 
@@ -92,7 +83,7 @@ public class DynamicSolver : SolverBase, IDisposable
 
                 //We increase the time after all components have finished the current step
                 //In case we increase it before, we e.g. can not simulate simulation time 0
-                BaseModel.SimulationTime = BaseModel.SimulationTime + _dynamicSolverModel.SimulationStep;
+                BaseModel.SimulationTime = BaseModel.SimulationTime + DynamicSolverModel.SimulationStep;
 
                 //Delay is helpful for gui programming, as the simulation without delays would be way to fast in most cases
                 if (BaseModel.Delay > 0)
@@ -106,7 +97,12 @@ public class DynamicSolver : SolverBase, IDisposable
         }
         catch (Exception ex)
         {
-            SimulationEnvironment.Model.Easy2SimLogging.FrameworkDebuggingLogger.Error(ex.ToString());
+            if (SimulationEnvironment.Model.Easy2SimLogging?.FrameworkDebuggingLogger != null)
+                SimulationEnvironment.Model.Easy2SimLogging.FrameworkDebuggingLogger.Error(ex.ToString());
+            else
+            {
+                throw new Exception(ex.ToString());
+            }
         }
     }
 
@@ -116,15 +112,17 @@ public class DynamicSolver : SolverBase, IDisposable
     /// </summary>
     public override void CalculateTo(long maxTime)
     {
+        if (DynamicSolverModel == null)
+            throw new Exception("Dynamic solver model is null, can not CalculateTo");
 
         if (SimulationEnvironment == null)
-            return;
+            throw new Exception("Simulation environment is null, can not CalculateTo"); ;
 
         SimulationEnvironment.LogEnvironmentInfo("Dynamic solver: calculate to " + maxTime);
         try
         {
             //Run until our simulation time is larger than the given limit
-            for (long i = BaseModel.SimulationTime; i <= maxTime; i += _dynamicSolverModel.SimulationStep)
+            for (long i = BaseModel.SimulationTime; i <= maxTime; i += DynamicSolverModel.SimulationStep)
             {
                 BaseModel.SimulationTime = i;
 
@@ -148,6 +146,7 @@ public class DynamicSolver : SolverBase, IDisposable
             SimulationEnvironment.LogEnvironmentFatal(ex.ToString());
         }
     }
+
 
     /// <summary>
     /// Initialize can be called before the simulation starts.
@@ -174,12 +173,11 @@ public class DynamicSolver : SolverBase, IDisposable
         }
     }
 
-
-    /// <summary>
-    /// Make sure the solver is removed from the component register once it is disposed
-    /// </summary>
-    public void Dispose()
+    public DynamicSolver Clone()
     {
-        ComponentRegister.RemoveSolver(Guid);
+        DynamicSolver result = new DynamicSolver();
+        result.BaseModel = BaseModel.Clone();
+        result.DynamicSolverModel = DynamicSolverModel?.Clone();
+        return result;
     }
 }

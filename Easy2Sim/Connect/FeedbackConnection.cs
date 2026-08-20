@@ -9,7 +9,7 @@ namespace Easy2Sim.Connect;
 /// <summary>
 /// This class defines connections in the simulation framework
 /// </summary>
-public class FeedbackConnection<T, T1> : IConnection
+public class FeedbackConnection<T, T1> : IConnection, ICloneable<FeedbackConnection<T, T1>>
 {
     /// <summary>
     /// Is the connection created by a component connection
@@ -36,18 +36,13 @@ public class FeedbackConnection<T, T1> : IConnection
     public Guid Guid { get; set; } = Guid.NewGuid();
 
 
-    /// <summary>
-    /// Guid of the environment in which the connection is registered
-    /// </summary>
-    [JsonProperty]
-    public Guid EnvironmentGuid { get; set; }
 
     /// <summary>
     /// Returns the current environment in which the connection is registered.
     /// Returns null if no environment can be found.
     /// </summary>
     [JsonIgnore]
-    public SimulationEnvironment? SimulationEnvironment => ComponentRegister.GetEnvironment(EnvironmentGuid);
+    public SimulationEnvironment? SimulationEnvironment { get; set; }
 
     [JsonIgnore]
     public SimulationBase? SourceObject
@@ -82,16 +77,16 @@ public class FeedbackConnection<T, T1> : IConnection
             {
                 SimulationBase? simObject = SimulationEnvironment?.Model.SimulationObjects
                     .FirstOrDefault(x => x.Value.Easy2SimName == SourceName).Value;
-                PropertyInfo[] properties = simObject.GetType().GetProperties();
+                PropertyInfo[]? properties = simObject?.GetType().GetProperties();
                 // Get the PropertyInfo for the 'Value' property
-                PropertyInfo propertyInfo = properties.FirstOrDefault(x => x.Name.Contains(SourceProperty));
+                PropertyInfo? propertyInfo = properties?.FirstOrDefault(x => x.Name.Contains(SourceProperty));
                 if (propertyInfo != null)
                 {
                     return (FeedbackSimulationValue<T, T1>?)propertyInfo.GetValue(simObject);
                 }
 
-                FieldInfo[] fInfos = simObject.GetType().GetFields();
-                FieldInfo fInfo = fInfos.FirstOrDefault(x => x.Name.Contains(SourceProperty));
+                FieldInfo[]? fInfos = simObject?.GetType().GetFields();
+                FieldInfo? fInfo = fInfos?.FirstOrDefault(x => x.Name.Contains(SourceProperty));
                 if (fInfo != null)
                 {
                     return (FeedbackSimulationValue<T, T1>?)fInfo.GetValue(simObject);
@@ -99,7 +94,7 @@ public class FeedbackConnection<T, T1> : IConnection
             }
             catch (Exception e)
             {
-                SimulationEnvironment?.LogEnvironmentError("Exception while retrieving Source in feedback connection: " + Guid);
+                SimulationEnvironment?.LogEnvironmentError($"Exception {e} while retrieving Source in feedback connection: " + Guid);
                 return null;
             }
 
@@ -115,26 +110,26 @@ public class FeedbackConnection<T, T1> : IConnection
             try
             {
 
-                SimulationBase simObject = SimulationEnvironment.Model.SimulationObjects
+                SimulationBase? simObject = SimulationEnvironment?.Model.SimulationObjects
                     .FirstOrDefault(x => x.Value.Easy2SimName == TargetName).Value;
-                PropertyInfo[] properties = simObject.GetType().GetProperties();
+                PropertyInfo[]? properties = simObject?.GetType().GetProperties();
                 // Get the PropertyInfo for the 'Value' property
-                PropertyInfo propertyInfo = properties.FirstOrDefault(x => x.Name.Contains(TargetProperty));
+                PropertyInfo? propertyInfo = properties?.FirstOrDefault(x => x.Name.Contains(TargetProperty));
                 if (propertyInfo != null)
                 {
-                    return (FeedbackSimulationValue<T, T1>)propertyInfo.GetValue(simObject);
+                    return (FeedbackSimulationValue<T, T1>?)propertyInfo.GetValue(simObject);
                 }
 
-                FieldInfo[] fInfos = simObject.GetType().GetFields();
-                FieldInfo fInfo = fInfos.FirstOrDefault(x => x.Name.Contains(TargetProperty));
+                FieldInfo[]? fInfos = simObject?.GetType().GetFields();
+                FieldInfo? fInfo = fInfos?.FirstOrDefault(x => x.Name.Contains(TargetProperty));
                 if (fInfo != null)
                 {
-                    return (FeedbackSimulationValue<T, T1>)fInfo.GetValue(simObject);
+                    return (FeedbackSimulationValue<T, T1>?)fInfo.GetValue(simObject);
                 }
             }
             catch (Exception e)
             {
-                SimulationEnvironment?.LogEnvironmentError("Exception while retrieving Target in feedback connection: " + Guid);
+                SimulationEnvironment?.LogEnvironmentError($"Exception {e} while retrieving Target in feedback connection: " + Guid);
                 return null;
             }
             SimulationEnvironment?.LogEnvironmentError("Target not found in feedback connection: " + Guid);
@@ -152,17 +147,18 @@ public class FeedbackConnection<T, T1> : IConnection
     public string TargetProperty { get; set; }
 
     [JsonConstructor]
-    public FeedbackConnection()
+    public FeedbackConnection(bool isComponentConnection = false)
     {
         SourceName = string.Empty;
         TargetName = string.Empty;
         SourceProperty = string.Empty;
         TargetProperty = string.Empty;
+        IsComponentConnection = isComponentConnection;
     }
-    public FeedbackConnection(FeedbackSimulationValue<T, T1>? source, FeedbackSimulationValue<T, T1>? target, Guid environmentGuid, bool isComponentConnection)
+    public FeedbackConnection(FeedbackSimulationValue<T, T1>? source, FeedbackSimulationValue<T, T1>? target, SimulationEnvironment environment, bool isComponentConnection)
     {
         IsComponentConnection = isComponentConnection;
-        EnvironmentGuid = environmentGuid;
+        SimulationEnvironment = environment;
         if (source != null && target != null)
         {
             SourceName = source.ParentName;
@@ -214,9 +210,22 @@ public class FeedbackConnection<T, T1> : IConnection
             }
     }
 
+
     public override string ToString()
     {
         return $"{SourceName}\\{SourceProperty} => {TargetName}\\{TargetProperty}";
+    }
+    public FeedbackConnection<T, T1> Clone()
+    {
+        FeedbackConnection<T, T1> result = new FeedbackConnection<T, T1>(IsComponentConnection);
+        result.SourceName = SourceName;
+        result.SourceProperty = SourceProperty;
+        result.TargetName = TargetName;
+        result.TargetProperty = TargetProperty;
+
+
+
+        return result;
     }
 
 }

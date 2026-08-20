@@ -1,5 +1,4 @@
-﻿using System.Security.Cryptography.X509Certificates;
-using Easy2Sim.Environment;
+﻿using Easy2Sim.Environment;
 using Easy2Sim.Interfaces;
 using Newtonsoft.Json;
 
@@ -8,7 +7,7 @@ namespace Easy2Sim.Solvers.Discrete;
 /// <summary>
 /// Holds all data for a discrete simulation.
 /// </summary>
-public class DiscreteSolverModel : IFrameworkBase
+public class DiscreteSolverModel : IFrameworkBase, ICloneable<DiscreteSolverModel>
 {
     /// <summary>
     /// Each object in the framework should have a unique guid
@@ -61,6 +60,10 @@ public class DiscreteSolverModel : IFrameworkBase
     /// <param name="simBase"></param>
     public void AddEvent(long timeStamp, SimulationBase simBase)
     {
+        if (simBase.SimulationEnvironment == null)
+            throw new Exception("Simulation environment not set for simulation object " + simBase.Easy2SimName);
+        
+
         DiscreteEvent result = new DiscreteEvent(timeStamp, simBase.Easy2SimName);
         if (AllowLoops)
         {
@@ -108,6 +111,9 @@ public class DiscreteSolverModel : IFrameworkBase
 
     public void AddAfterTimeEvent(long timeStamp, SimulationBase simBase)
     {
+        if (simBase.SimulationEnvironment == null)
+            throw new Exception("Simulation environment not set for simulation object " + simBase.Easy2SimName);
+
         DiscreteEvent result = new DiscreteEvent(timeStamp, simBase.Easy2SimName);
         if (AllowAfterTimeLoops)
         {
@@ -153,7 +159,7 @@ public class DiscreteSolverModel : IFrameworkBase
     public void RemoveEventsForEasy2SimName(string componentName)
     {
         List<long> keysToRemove = new List<long>();
-    
+
         keysToRemove.Clear();
         foreach (long key in EventList.Keys)
         {
@@ -180,5 +186,39 @@ public class DiscreteSolverModel : IFrameworkBase
 
         foreach (long l in keysToRemove)
             AfterTimeEventList.Remove(l);
+    }
+
+    public DiscreteSolverModel Clone()
+    {
+        DiscreteSolverModel result = new DiscreteSolverModel();
+        foreach (KeyValuePair<long, SortedSet<DiscreteEvent>> pair in EventList)
+        {
+            result.EventList.Add(pair.Key, new SortedSet<DiscreteEvent>());
+            foreach (DiscreteEvent discreteEvent in pair.Value)
+            {
+                result.EventList[pair.Key].Add(discreteEvent.Duplicate());
+            }
+        }
+
+        foreach (DiscreteEvent discreteEvent in result.HistoricEvents)
+            result.HistoricEvents.Add(discreteEvent.Duplicate());
+
+        foreach (DiscreteEvent discreteEvent in HistoricAfterEvents)
+            result.HistoricAfterEvents.Add(discreteEvent.Duplicate());
+
+
+        foreach (KeyValuePair<long, SortedSet<DiscreteEvent>> pair in AfterTimeEventList)
+        {
+            result.AfterTimeEventList.Add(pair.Key, new SortedSet<DiscreteEvent>());
+            foreach (DiscreteEvent discreteEvent in pair.Value)
+            {
+                result.AfterTimeEventList[pair.Key].Add(discreteEvent.Duplicate());
+            }
+        }
+        result.AllowAfterTimeLoops = AllowAfterTimeLoops;
+        result.AllowLoops = AllowLoops;
+        
+
+        return result;
     }
 }
